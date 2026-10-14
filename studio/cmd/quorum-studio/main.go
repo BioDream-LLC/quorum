@@ -167,6 +167,8 @@ func draftCmd(args []string) int {
 	itemsFile := fs.String("items", "", "gate proposals from this JSON file instead of asking a model")
 	rounds := fs.Int("repair", 2, "repair rounds: send dropped items and the reasons back to the model this many times")
 	bySentence := fs.Bool("sentences", true, "after the first draft, ask about every sentence of the manual in turn")
+	second := fs.String("second", "", "ask this model (on the same server) to compare the finished draft with the manual; "+
+		"its findings go back to the drafter once and the rest into the review. \"same\" uses -model")
 	temperature := fs.Float64("temperature", 0, "sampling temperature; 0 is reproducible, above 0 gives a different sample per seed")
 	seed := fs.Int("seed", 1, "sampling seed (matters only above temperature 0)")
 	if len(args) < 1 {
@@ -197,6 +199,8 @@ func draftCmd(args []string) int {
 	var r draft.Result
 	var raw string
 	var skipped []string
+	var findings []draft.Finding
+	var asked2nd bool
 	if *itemsFile != "" {
 		b, err := os.ReadFile(*itemsFile)
 		if err != nil {
@@ -220,7 +224,7 @@ func draftCmd(args []string) int {
 		meta.Model = source
 		fmt.Printf("using %s at %s (this can take minutes without a GPU)...\n", *model, ep)
 		o, err := draft.Run(context.Background(), string(manual), meta, draft.Options{Endpoint: ep, Model: *model,
-			Rounds: *rounds, BySentence: *bySentence,
+			Rounds: *rounds, BySentence: *bySentence, SecondModel: secondModel(*second, *model),
 			Check: func(src string) []string { return pipeline.Messages(context.Background(), src) }},
 			func(line string) {
 				if strings.Contains(line, "(skipped)") || strings.HasPrefix(line, "repair failed") {
@@ -233,7 +237,7 @@ func draftCmd(args []string) int {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}
-		r, raw, skipped = o.Result, o.Raw, o.Skipped
+		r, raw, skipped, findings, asked2nd = o.Result, o.Raw, o.Skipped, o.Second, o.Asked2nd
 	}
 	for _, x := range r.Rejected {
 		label := x.Item.Name
@@ -260,6 +264,7 @@ func draftCmd(args []string) int {
 	}
 	rv := draft.Assess(string(manual), r)
 	rv.Incomplete(skipped)
+	rv.Second, rv.Asked2nd = findings, asked2nd
 	review := rv.Text()
 	_ = os.WriteFile(*out+".review.txt", []byte(review), 0o644)
 	fmt.Printf("\n%s\n(also in %s.review.txt)\n", review, *out)
@@ -271,4 +276,12 @@ func draftCmd(args []string) int {
 	}
 	fmt.Println(c.Output)
 	return 0
+}
+
+// secondModel resolves the -second flag: empty is no second reader, "same" is the drafting model.
+func secondModel(flag, model string) string {
+	if flag == "same" {
+		return model
+	}
+	return flag
 }

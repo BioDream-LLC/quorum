@@ -44,6 +44,7 @@ type draftRequest struct {
 	AllowRemote          bool
 	Rounds               int
 	BySentence           bool
+	SecondModel          string
 }
 
 func (s *Server) draftStart(w http.ResponseWriter, r *http.Request) {
@@ -105,7 +106,7 @@ func (s *Server) draftStart(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		defer cancel()
 		o, err := draft.Run(ctx, req.Content, meta, draft.Options{Endpoint: ep, Model: req.Model, Rounds: req.Rounds,
-			BySentence: req.BySentence, Check: func(src string) []string { return pipeline.Messages(ctx, src) }},
+			BySentence: req.BySentence, SecondModel: strings.TrimSpace(req.SecondModel), Check: func(src string) []string { return pipeline.Messages(ctx, src) }},
 			func(line string) { j.mu.Lock(); j.log = append(j.log, line); j.mu.Unlock() })
 		j.mu.Lock()
 		defer j.mu.Unlock()

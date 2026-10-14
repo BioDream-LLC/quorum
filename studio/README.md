@@ -25,6 +25,12 @@ Signing: set `SIGN_PFX=<cert.pfx> SIGN_PASS=<password>` (and optionally `SIGN_TS
 are then Authenticode-signed and the build fails unless the signature verifies. There is no certificate yet, so
 builds are unsigned and Windows SmartScreen warns on first run.
 
+macOS: `studio/build-macos.sh` runs after `build.sh` and builds on a Mac over ssh (`MAC=user@host`; it needs the
+Xcode command-line tools and Homebrew `cmake` and `go`). It builds the C++ tools and the studio as universal binaries
+for Apple Silicon and Intel, runs the Go tests there, and writes `studio/dist/quorum-studio-macos.zip`. The program
+is ad-hoc signed only, with no Apple Developer ID and no notarization, so macOS asks before the first run. The
+`README.txt` in the zip explains how to allow it.
+
 ## Test
 
 - `go test ./...` (inside build.sh): UF2 and .bin composition and refusals, layout constants against
@@ -41,7 +47,8 @@ UNO R4 board package installs; the studio does not ship dfu-util.
 
 ## Run
 
-`quorum-studio` opens the browser. `quorum-studio --no-browser` only prints the address.
+`quorum-studio` opens the browser. On a Mac, a Pico 2 in BOOTSEL mode is found under `/Volumes`, and for an Uno R4
+the studio uses the dfu-util that the Arduino IDE installs in `~/Library/Arduino15`. `quorum-studio --no-browser` only prints the address.
 `quorum-studio image pump.cb [-board unor4] [-with tank.cb] [-o out]` and `quorum-studio import hazop sheet.csv`
 work without a browser.
 
@@ -66,5 +73,15 @@ draft is marked **UNAPPROVED**, and no chip image can be built from it. After ch
 enter your name and press **Approve draft**. That records who approved it and when, and removes the mark. The full
 check still runs: approval skips nothing.
 
-On the test manual the best hosted model got all 13 rules right. On a real design standard it got about 9 of 12,
-and one wrong rule passed every check. A person must approve.
+**Second opinion** (optional): name another model and it compares the finished draft with the manual. Disagreements it
+can back with a word-for-word quote go back to the drafter once, and what it still disputes is listed in the review.
+Its advice is kept only if the draft fails no more checks than before. It has not yet been shown to improve drafts,
+and it roughly doubles the cost.
+
+With Claude Sonnet 5.5:
+- The test manual: 13 of 13 rules in most runs.
+- A US Army Corps standard: 12 of 12 in 10 runs, after the drafter was taught alarm-only and start rules on that
+  same standard.
+- A Coast Guard regulation it had never seen: all 6 rules in 8 of 8 runs.
+
+These are a few documents, not a guarantee. A person must approve every draft.

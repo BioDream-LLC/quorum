@@ -54,6 +54,10 @@ type Review struct {
 	// "minor power fluctuations should not cause a shutdown" drafted as excusing every oil and temperature shutdown,
 	// so a power blip during a real overheat would keep the engine running). Only a person can tell which.
 	Cautions []string `json:"cautions"`
+	// Second is what a second reader (another AI, see CrossCheck) still disputes after the drafter's last repair.
+	// It can be wrong too; it is a list of places to look, not a verdict.
+	Second   []Finding `json:"second,omitempty"`
+	Asked2nd bool      `json:"asked2nd,omitempty"`
 }
 
 // Incomplete records sentences the sentence pass could not ask about. A draft with any is not the draft the process
@@ -420,6 +424,23 @@ func Assess(manual string, r Result) Review {
 			rv.Uncovered = append(rv.Uncovered, s)
 		}
 	}
+	// A document may state no exception and no instrument check at all (46 CFR 112.50-1, 2026-10-14). The compiler
+	// then refuses the draft, rightly: a rulebook that nothing can argue with cannot tell a dead sensor from a quiet
+	// machine. That is a decision for the person, so it is said here -- and NOT sent back to the model, which would
+	// otherwise invent an exception to get past the check.
+	arguable := false
+	for _, it := range r.Accepted {
+		if it.Kind == "attack" || it.Kind == "excuse" || it.Kind == "doubt" || it.Kind == "implies" {
+			arguable = true
+		}
+	}
+	if len(r.Accepted) > 0 && !arguable {
+		rv.Cautions = append(rv.Cautions, "nothing in this draft can cancel any claim: the manual states no exception "+
+			"and no instrument check. The compiler will refuse it until something can, because a rulebook nobody can "+
+			"argue with cannot tell a dead sensor from a quiet machine. Decide what may cancel each claim -- most often "+
+			"a doubt for a failed or unplugged sensor, or a sensor channel, whose dead-sensor checks are generated -- "+
+			"and add it; do not add an exception the manual does not state.")
+	}
 	return rv
 }
 
@@ -447,6 +468,23 @@ func (rv Review) Text() string {
 		b.WriteString("\nwhat can stop the safe action (each may be right; a person must decide):\n")
 		for _, c := range rv.Cautions {
 			b.WriteString("  CAUTION  " + c + "\n")
+		}
+	}
+	if rv.Asked2nd {
+		if len(rv.Second) == 0 {
+			b.WriteString("\nsecond opinion: another reading of the manual against this draft found no disagreement\n" +
+				"  (which is not proof; both readers can share a mistake)\n")
+		} else {
+			b.WriteString("\nsecond opinion: another AI read the manual against this draft and still disagrees here\n" +
+				"(it can be wrong too):\n")
+			for _, f := range rv.Second {
+				rule := ""
+				if f.Rule != "" {
+					rule = " " + f.Rule
+				}
+				b.WriteString(fmt.Sprintf("  %-8s%s %s\n           manual: %q\n", strings.ToUpper(f.Verdict), rule, f.Explain,
+					f.Quote))
+			}
 		}
 	}
 	b.WriteString("\nrules to check first (a real quote does not mean a real rule):\n")

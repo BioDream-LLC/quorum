@@ -138,6 +138,8 @@
         <input type="text" id="mendpoint" value="http://localhost:11434" style="flex:1"></div>
       <div class="row"><label for="mmodel" style="font-size:13px; width:110px">Model</label>
         <input type="text" id="mmodel" value="qwen2.5:14b" style="flex:1"></div>
+      <div class="row"><label for="msecond" style="font-size:13px; width:110px">Second opinion</label>
+        <input type="text" id="msecond" placeholder="optional: a second model, e.g. openai/gpt-5.6-sol" style="flex:1"></div>
       <div id="hostedonly" style="display:none">
         <div class="row"><label for="mkey" style="font-size:13px; width:110px">Key</label>
           <input type="password" id="mkey" autocomplete="off" placeholder="leave empty to use QUORUM_LLM_KEY" style="flex:1"></div>
@@ -769,6 +771,7 @@ $("learn").onclick = async () => {
 let manualDoc = { name: "", text: "" }, draftId = "", draftTimer = 0;
 const MODEL_DEFAULTS = { local: ["http://localhost:11434", "qwen2.5:14b"],
                          hosted: ["https://openrouter.ai/api/v1", "anthropic/claude-sonnet-5.5"] };
+const SECOND_DEFAULTS = { local: "", hosted: "" };
 $("manfile").onchange = async () => {
   const f = await readFile($("manfile")); $("manfile").value = "";
   manualDoc = { name: f.name, text: f.text };
@@ -779,6 +782,7 @@ $("manfile").onchange = async () => {
 };
 $("mserver").onchange = () => {
   const k = $("mserver").value; [$("mendpoint").value, $("mmodel").value] = MODEL_DEFAULTS[k];
+  $("msecond").value = SECOND_DEFAULTS[k];
   $("hostedonly").style.display = k === "hosted" ? "block" : "none";
 };
 function draftBusy(on) {
@@ -792,7 +796,8 @@ $("draft").onclick = async () => {
   try {
     const j = await api("/api/draft", { name: manualDoc.name, content: manualDoc.text, api: hosted ? "openai" : "ollama",
       endpoint: $("mendpoint").value.trim(), model: $("mmodel").value.trim(), key: hosted ? $("mkey").value : "",
-      allowRemote: hosted && $("mremote").checked, rounds: 2, bySentence: true });
+      allowRemote: hosted && $("mremote").checked, rounds: 2, bySentence: true,
+      secondModel: $("msecond").value.trim() });
     draftId = j.id; pollDraft();
   } catch (e) { $("loaded").textContent = e.message; draftBusy(false); }
 };

@@ -631,3 +631,93 @@ func TestApproveRemovesOnlyTheMarker(t *testing.T) {
 		t.Errorf("approval removed more than the three marker lines")
 	}
 }
+
+func TestCrossCheckKeepsOnlyVerbatimFindings(t *testing.T) {
+	m := manual(t)
+	q := "If the thermal switch has opened, the motor is overheated and the pump must be stopped."
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]string{"response": `{"items":[
+ {"kind":"missing","name":"","quote":"` + q + `","description":"no shutdown for overheating"},
+ {"kind":"wrong","name":"stop","quote":"the pump explodes when it is cold","description":"invented"},
+ {"kind":"praise","name":"","quote":"` + q + `","description":"not a verdict"}]}`})
+	}))
+	defer srv.Close()
+	fs, _, err := CrossCheck(context.Background(), srv.URL, "m", m, "casebook x v1\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(fs) != 1 || fs[0].Verdict != "missing" || fs[0].Quote != q {
+		t.Fatalf("want only the verbatim, known-verdict finding, got %+v", fs)
+	}
+	if fb := FindingsFeedback(fs); !strings.Contains(fb, "MISSING") || !strings.Contains(fb, q) {
+		t.Errorf("feedback: %s", fb)
+	}
+}
+
+func TestPromptTeachesAlarmOnlyAndStartPermissives(t *testing.T) {
+	p := Prompt("x")
+	for _, want := range []string{"SHUTDOWN OR ALARM ONLY", "START PERMISSIVES", "excuses ONLY what its sentence names"} {
+		if !strings.Contains(p, want) {
+			t.Errorf("prompt lacks %q", want)
+		}
+	}
+}
+
+func TestUnreachableHintNamesTheActionInTheWay(t *testing.T) {
+	r := Result{Accepted: []Item{
+		{Kind: "action", Name: "report", When: []string{"failed_start", "mismatch"}},
+		{Kind: "action", Name: "inspect", When: []string{"mismatch"}},
+		{Kind: "prefer", Order: []string{"stop", "report", "inspect", "run"}},
+	}}
+	h := unreachableHints(r, []string{"FAIL every declared action is reachable (1 unreachable: inspect) -- an action is unreachable when"})
+	if len(h) != 1 || !strings.Contains(h[0], "inspect can never be chosen because report") ||
+		!strings.Contains(h[0], "remove mismatch from report's") {
+		t.Fatalf("hint: %v", h)
+	}
+	if h := unreachableHints(r, []string{"error: something else"}); len(h) != 0 {
+		t.Errorf("no hint wanted, got %v", h)
+	}
+}
+
+func TestMergeKeepsSafeTriggersButLetsOtherActionsDropOne(t *testing.T) {
+	kept := []Item{
+		{Kind: "action", Name: "stop", Role: "safe", When: []string{"dry", "hot"}},
+		{Kind: "action", Name: "report", When: []string{"failed", "mismatch"}},
+	}
+	got := Merge(kept, []Item{
+		{Kind: "action", Name: "stop", Role: "safe", When: []string{"hot"}},
+		{Kind: "action", Name: "report", When: []string{"failed"}},
+	})
+	w := map[string]string{}
+	for _, it := range got {
+		w[it.Name] = strings.Join(it.When, " ")
+	}
+	if w["stop"] != "hot dry" {
+		t.Errorf("the safe action must keep every route to it, got %q", w["stop"])
+	}
+	if w["report"] != "failed" {
+		t.Errorf("another action may drop a trigger, got %q", w["report"])
+	}
+}
+
+func TestReviewSaysWhenNothingCanCancelAClaim(t *testing.T) {
+	m := manual(t)
+	q := "If the thermal switch has opened, the motor is overheated and the pump must be stopped."
+	r := Gate(m, []Item{
+		{Kind: "observe", Name: "thermal_open", Description: "winding overheated", Quote: q},
+		{Kind: "claim", Name: "overheated", Description: "motor overheated", Severity: 8, Needs: []string{"thermal_open"}, Quote: q},
+		{Kind: "action", Name: "run", Role: "idle", Quote: q},
+		{Kind: "action", Name: "stop", Role: "safe", When: []string{"overheated"}, Quote: q},
+	}, Meta{Casebook: "t", Manual: "m.txt", Model: "x", Date: "2026-10-14"})
+	rv := Assess(m, r)
+	found := false
+	for _, c := range rv.Cautions {
+		found = found || strings.Contains(c, "nothing in this draft can cancel any claim")
+	}
+	if !found {
+		t.Errorf("cautions: %v", rv.Cautions)
+	}
+	if strings.Contains(rv.Feedback(nil), "nothing in this draft can cancel") {
+		t.Error("the caution must not be sent back to the model, which would invent an exception")
+	}
+}

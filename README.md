@@ -19,7 +19,7 @@ Pico 2 or an Arduino Uno R4.
 
 <a href="docs/quorum.pdf"><img src="docs/assets/buttons/overview.svg" alt="See what quorum does: the overview, as a PDF" width="248"></a>&nbsp;&nbsp;&nbsp;<a href="docs/quorum.pptx"><img src="docs/assets/buttons/deck.svg" alt="Download the overview deck as PowerPoint" width="248"></a>&nbsp;&nbsp;&nbsp;<a href="casebook/LANGUAGE.md"><img src="docs/assets/buttons/language.svg" alt="Read the rulebook guide" width="248"></a>
 
-<a href="https://github.com/BioDream-LLC/quorum/releases/download/v0.1.0/quorum-studio-v0.1.0-windows-setup.exe"><img src="docs/assets/buttons/download-windows.svg" alt="Download quorum studio for Windows, x64" width="248"></a>&nbsp;&nbsp;&nbsp;<a href="https://github.com/BioDream-LLC/quorum/releases/download/v0.1.0/quorum-studio-v0.1.0-linux-amd64.tar.gz"><img src="docs/assets/buttons/download-linux.svg" alt="Download quorum studio for Linux, x86-64" width="248"></a>
+<a href="https://github.com/BioDream-LLC/quorum/releases/latest/download/quorum-studio-windows-setup.exe"><img src="docs/assets/buttons/download-windows.svg" alt="Download quorum studio for Windows, x64" width="248"></a>&nbsp;&nbsp;&nbsp;<a href="https://github.com/BioDream-LLC/quorum/releases/latest/download/quorum-studio-linux-amd64.tar.gz"><img src="docs/assets/buttons/download-linux.svg" alt="Download quorum studio for Linux, x86-64" width="248"></a>&nbsp;&nbsp;&nbsp;<a href="https://github.com/BioDream-LLC/quorum/releases/latest/download/quorum-studio-macos.zip"><img src="docs/assets/buttons/download-macos.svg" alt="Download quorum studio for macOS, Apple Silicon and Intel" width="248"></a>
 
 <sub>The overview is 34 slides in plain words: what quorum is, what it is for, and what it has not done yet.</sub>
 
@@ -52,7 +52,7 @@ a small file that a Raspberry Pi Pico 2 or an Arduino Uno R4 loads, re-checking 
 the distinction that matters when a sensor is dead. The engine uses no heap, no recursion and no floating point, and has
 a proven bound on its worst case.
 
-**quorum studio** puts all of it in one desktop app for Windows and Linux: open or draft a rulebook, check every
+**quorum studio** puts all of it in one desktop app for Windows, macOS and Linux: open or draft a rulebook, check every
 situation, and write the chip image, without installing a compiler. It runs entirely on your computer.
 
 ## Everything it does
@@ -149,7 +149,7 @@ every claim with the test that establishes it and what that test does not cover.
 <li>Open, import, learn or draft a rulebook; edit it with highlighting, find and replace, and a to-do list</li>
 <li>Edit the worksheet itself, with undo, and re-import</li>
 <li>Check every situation, then <b>download the chip image or write it straight to the board</b></li>
-<li>Windows installer with no administrator rights; Linux binary; listens on this computer only, with a per-launch token</li>
+<li>Windows installer with no administrator rights; Linux binary; macOS app for Apple Silicon and Intel; listens on this computer only, with a per-launch token</li>
 </ul>
 </td>
 </tr>

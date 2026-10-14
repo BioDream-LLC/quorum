@@ -369,6 +369,23 @@ Rules:
     {"kind":"observe","name":"calibrating","description":"calibration in progress","quote":"..."}
     {"kind":"excuse","name":"calibration","needs":["calibrating"],...}  {"kind":"attack","from":"calibration","attack":"undercuts","to":["low_reading"],...}
   Name a mode only if THIS manual mentions it.
+- SHUTDOWN OR ALARM ONLY. Read what the manual asks for each condition. If it asks for a shutdown (with or without
+  an alarm), put the claim in the "safe" action's "when". If it asks ONLY for an alarm, warning, indication or report
+  and says nothing about stopping, do NOT put it in the safe action: declare a separate action for it, for example
+    {"kind":"action","name":"raise_alarm","when":["bearing_hot_alarm"],"quote":"..."}
+  and rank it between the safe action and the idle action in "prefer". One alarm action may serve several conditions.
+- START PERMISSIVES. "X must not start until Y", "before X is allowed to start", "X may start only when Y" is a
+  condition on STARTING, not a shutdown. Declare a reading for the start being requested and one for Y (Y being done
+  is a reading; Y not being done is its absence), a claim that needs the start request, Y rebutting that claim, and
+  an action that holds the start:
+    {"kind":"observe","name":"start_requested","description":"a start has been requested","quote":"..."}
+    {"kind":"observe","name":"prelube_done","description":"the prelube cycle has finished","quote":"..."}
+    {"kind":"claim","name":"start_too_soon","description":"starting now would skip the prelube","severity":5,"needs":["start_requested"],"quote":"..."}
+    {"kind":"attack","from":"prelube_done","attack":"rebuts","to":["start_too_soon"],"quote":"..."}
+    {"kind":"action","name":"hold_start","when":["start_too_soon"],"quote":"..."}
+  Rank the hold below the safe action and above the idle action.
+- An exception excuses ONLY what its sentence names. "X should not cause a shutdown" cancels a shutdown caused by X;
+  it does not cancel shutdowns for other faults that happen while X is going on.
 - names: lower case letters, digits and underscores only.
 - EVERY item needs "quote": text copied EXACTLY, character for character, from the manual, that justifies the item.
   A whole sentence or part of one. Do not add, drop or change any word, and do not include headings or numbers.
@@ -565,7 +582,13 @@ func Merge(kept, more []Item) []Item {
 	}
 	more = append([]Item(nil), more...)
 	for i, it := range more {
-		if o, ok := old[it.Name]; ok && strings.EqualFold(strings.TrimSpace(it.Kind), "action") {
+		// Only the SAFE action keeps its old triggers. Applied to every action, the rule made one kind of mistake
+		// impossible to repair: an action that fires on every trigger of a lower-ranked one makes that one
+		// unreachable, and the only fix -- dropping the shared trigger -- was silently undone, so cbc refused the
+		// sump draft in four runs of five (2026-10-14). Losing a route to the safe action is the dangerous direction;
+		// for other actions the compiler's reachability check catches what a dropped trigger breaks.
+		if o, ok := old[it.Name]; ok && strings.EqualFold(strings.TrimSpace(it.Kind), "action") &&
+			strings.EqualFold(strings.TrimSpace(o.Role), "safe") {
 			have := map[string]bool{}
 			for _, w := range it.When {
 				have[w] = true
@@ -724,7 +747,7 @@ func generateOnce(ctx context.Context, endpoint, model, prompt string, temperatu
 	}
 	if resp.StatusCode != http.StatusOK {
 		e := fmt.Errorf("model server said %s: %s", resp.Status, strings.TrimSpace(string(raw)))
-		if resp.StatusCode >= 500 {
+		if resp.StatusCode >= 500 || resp.StatusCode == http.StatusRequestTimeout {
 			return nil, string(raw), errServer{e}
 		}
 		return nil, string(raw), e
@@ -780,7 +803,8 @@ func generateChat(ctx context.Context, endpoint, model, prompt string, temperatu
 	}
 	if resp.StatusCode != http.StatusOK {
 		e := fmt.Errorf("model server said %s: %s", resp.Status, strings.TrimSpace(string(raw)))
-		if resp.StatusCode >= 500 || resp.StatusCode == http.StatusTooManyRequests {
+		// 408 is an upstream provider timing out (seen 2026-10-14 through OpenRouter, Azure): worth retrying too.
+		if resp.StatusCode >= 500 || resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == http.StatusRequestTimeout {
 			return nil, string(raw), errServer{e}
 		}
 		return nil, string(raw), e

@@ -248,6 +248,8 @@ func findPico() (string, error) {
 		for c := 'D'; c <= 'Z'; c++ {
 			roots = append(roots, string(c)+`:\`)
 		}
+	} else if runtime.GOOS == "darwin" {
+		roots, _ = filepath.Glob("/Volumes/*")
 	} else {
 		for _, base := range []string{"/media", "/run/media", "/mnt"} {
 			matches, _ := filepath.Glob(filepath.Join(base, "*", "*"))
@@ -299,7 +301,8 @@ func findDfuUtil() (string, error) {
 	if runtime.GOOS == "windows" {
 		roots = append(roots, filepath.Join(os.Getenv("LOCALAPPDATA"), "Arduino15"))
 	} else if home, err := os.UserHomeDir(); err == nil {
-		roots = append(roots, filepath.Join(home, ".arduino15"))
+		// The Arduino IDE keeps its packages in ~/Library/Arduino15 on macOS and ~/.arduino15 on Linux.
+		roots = append(roots, filepath.Join(home, "Library", "Arduino15"), filepath.Join(home, ".arduino15"))
 	}
 	name := "dfu-util"
 	if runtime.GOOS == "windows" {
