@@ -1,0 +1,65 @@
+# Pico 2, 2026-10-05: palette and damaged-image runs. Runtime firmware = build/quorum_runtime.uf2 from
+# firmware/pico2/build-runtime.sh (byte-identical to the 2026-10-01 build). Raw serial captures below.
+#
+# 1. palette: quorum-studio image pump.cb -board pico2 -with tank.cb. Host (qblob sweep):
+#      DEVICE centrifugal-pump states 16384 asserts 1024 fnv1a 0xe5408b85
+#      DEVICE tank-409 states 32768 asserts 7680 fnv1a 0x90bc4385
+--- run started 2026-10-05T15:02:14.7362822-05:00 ---
+--- waiting up to 30 s for the board to appear ---
+--- board present at 2026-10-05T15:02:15.1120947-05:00: port COM4 drive  ---
+--- poking COM4 at 1200 baud to request BOOTSEL ---
+--- poke threw: Exception calling "Open" with "0" argument(s): "A device attached to the system is not functioning.
+" (may still have worked) ---
+--- BOOTSEL drive D: found; copying uf2 ---
+--- opened COM4 at 2026-10-05T15:02:19.5609798-05:00 ---
+
+=== quorum runtime on RP2350 (report 0) ===
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+palette         2 casebooks, 89 arguments, 124 attacks, 29 observations
+image           OK, fingerprint 0x3379c490
+-- member       centrifugal-pump (others quiet)
+not Decided     86   construction faults 0
+steps           max 273, proven bound 484, WITHIN
+worst cycle     35338 cycles = 235.586 us at 150000000 Hz (state 0x0, cold, instantiate+decide)
+DEVICE centrifugal-pump states 16384 asserts 1024 fnv1a 0xe5408b85
+-- member       tank-409 (others quiet)
+not Decided     0   construction faults 0
+steps           max 273, proven bound 484, WITHIN
+worst cycle     24510 cycles = 163.400 us at 150000000 Hz (state 0x0, cold, instantiate+decide)
+DEVICE tank-409 states 32768 asserts 7680 fnv1a 0x90bc4385
+
+=== quorum runtime on RP2350 (report 1) ===
+
+## 2. pump image with one bit flipped at image offset 0x64
+--- run started 2026-10-05T15:06:57.6599431-05:00 ---
+--- waiting up to 30 s for the board to appear ---
+--- board present at 2026-10-05T15:06:58.0703764-05:00: port COM4 drive  ---
+--- poking COM4 at 1200 baud to request BOOTSEL ---
+--- poke threw: Exception calling "Open" with "0" argument(s): "A device attached to the system is not functioning.
+" (may still have worked) ---
+--- BOOTSEL drive D: found; copying uf2 ---
+--- opened COM4 at 2026-10-05T15:07:02.6512433-05:00 ---
+
+=== quorum runtime on RP2350 (report 0) ===
+NO CASEBOOK     image damaged (CRC) -- this device will not decide
+
+=== quorum runtime on RP2350 (report 1) ===
+
+## 3. pump image with the targets of the first two attack edges swapped (29 <-> 16), CRC recomputed
+--- run started 2026-10-05T15:07:50.6371619-05:00 ---
+--- waiting up to 30 s for the board to appear ---
+--- board present at 2026-10-05T15:07:51.0063856-05:00: port COM4 drive  ---
+--- poking COM4 at 1200 baud to request BOOTSEL ---
+--- poke threw: Exception calling "Open" with "0" argument(s): "A device attached to the system is not functioning.
+" (may still have worked) ---
+--- BOOTSEL drive D: found; copying uf2 ---
+--- opened COM4 at 2026-10-05T15:07:55.5831000-05:00 ---
+
+=== quorum runtime on RP2350 (report 0) ===
+NO CASEBOOK     fingerprint mismatch -- this device will not decide
+
+=== quorum runtime on RP2350 (report 1) ===
+
+## 4. restoring the good image: the 1200-baud reboot request failed and the board dropped off USB
+##    (Device Descriptor Request Failed), as on 2026-10-02. Needs a BOOTSEL replug; not a decision result.

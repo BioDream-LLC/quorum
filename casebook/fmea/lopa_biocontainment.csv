@@ -1,0 +1,53 @@
+# Table 4, "Complete worked example of a LOPA study", transcribed from:
+#
+#   Harsono, A., Waters, R., Tearle, J. & Harkess, G. "Applying the layers of protection analysis (LOPA) method to
+#   high containment level biological facilities." Scientific Reports 15, 4428 (2025).
+#   doi:10.1038/s41598-025-88546-8   --  Creative Commons Attribution 4.0 International (CC BY 4.0)
+#
+# CC BY permits derivative works, so a casebook drafted from this document is distributable. Both real FMEAs this
+# project has found are CC BY-NC-ND and cannot be used this way.
+#
+# ---------------------------------------------------------------------------------------------------------------
+# EXACTLY WHAT WAS CHANGED IN TRANSCRIPTION, AND WHY IT IS RECORDED HERE
+#
+# PROC-D1 in docs/assumptions.tsv is the worst finding this project has made, and it was about me: I silently
+# retyped a published HAZOP's column headers to fit my own importer, got thirteen findings, and reported them --
+# three hours after arguing that a mechanical import is what makes a finding attributable to the customer's
+# document rather than to my translation of it. With the paper's real headers, all thirteen vanished.
+#
+# So every difference between the paper's table and this file is listed:
+#
+#   1. The paper's table heads its four PFD columns "A", "B", "C", "D" and carries a SEPARATE legend table mapping
+#      each letter to a description. A CSV holds one table, so the legend text has been substituted into the
+#      header and the letter kept. No text was reworded.
+#
+#   2. The paper heads the whole block "IPLs and Conditional Modifiers - PFD" without saying which letters are
+#      which. D is marked CM here because its own description is "Probability of SAPO infection", and the paper's
+#      Step 4 lists "Probability of infection" as a conditional modifier. That is an inference, stated plainly.
+#      The variant fixture lopa_biocontainment_cm_as_ipl.csv marks D as an IPL instead, which is how a worksheet
+#      that had NOT thought about the distinction would look.
+#
+#   3. Nothing else. All four PFD columns carry a value in every row.
+#
+#      The first transcription of this file got row 2 WRONG and it is worth recording how, because the tool
+#      immediately accused this correct paper of an arithmetic error. The published table renders row 2 with only
+#      three PFD values, so a cell appeared to be blank, and a plausible story was invented for which one: the
+#      washdown layer, on the grounds that row 2's cause is an operator closing a valve rather than debris.
+#
+#      The paper's own totals settle it. The stated total is 1.40E-05, and 1.40E-05 - (1E-06 + 1E-06 + 2E-06) =
+#      1E-05, which with a frequency of 1 requires FOUR factors: 0.1 x 0.1 x 0.1 x 0.01. Three would give 1E-04.
+#      The cell was never blank; the text rendering dropped it.
+#
+#      Accusing a correct document of an error is the worst thing this tool can do -- worse than missing a real
+#      one, because it spends the credibility that every true finding depends on. The check that caught it was
+#      arithmetic the document supplied itself, which is precisely the argument for preferring LOPA over HAZOP.
+#
+# The arithmetic in this document is CORRECT in every row, so this file is primarily a CONTROL: the ARITHMETIC
+# check must stay silent on it, and the target conclusion must agree with the paper's own (a SIL 1 function, PFD
+# 7.14E-02). What the tool adds is the independence question the paper does not address.
+# ---------------------------------------------------------------------------------------------------------------
+Initiating Cause/Event Description,Frequency,IPL A: Drainage level switches available in every drain to indicate that flooding is imminent,IPL B: Valve position feedback available to notify control room if valves are in the wrong position,IPL C: Washdown procedures are followed daily by competent personnel to clean away larger pieces of debris,CM D: Probability of SAPO infection as calculated by research paper published by institute XYZ,Mitigated Event Frequency,Target Risk Frequency
+Blockage in the drainage header due to gradual build-up of material. Experience shows that this will happen in the facility approximately once every decade.,0.1,0.1,0.1,0.1,0.01,1.00E-06,1.00E-06
+Operator closes valve in error. Experience shows that this could happen once a year.,1,0.1,0.1,0.1,0.01,1.00E-05,
+Control system failures that result in route to all downstream tanks being unavailable.,0.1,0.1,0.1,0.1,0.01,1.00E-06,
+Blockage in one of the many drains in the building. From experience approximately once every 5 years.,0.2,0.1,0.1,0.1,0.01,2.00E-06,

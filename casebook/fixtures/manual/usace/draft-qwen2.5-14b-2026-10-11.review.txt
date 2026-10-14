@@ -1,0 +1,56 @@
+REVIEW -- what the checks cannot decide. Start here.
+
+draft as a whole:
+  PROBLEM  claim high_jacket_water_temp: no action or attack uses it, so it can never change a decision
+  PROBLEM  claim high_lubricating_oil_temp: no action or attack uses it, so it can never change a decision
+  PROBLEM  claim low_lubricating_oil_pressure: no action or attack uses it, so it can never change a decision
+  PROBLEM  claim gear_reducer_high_oil_temp: no action or attack uses it, so it can never change a decision
+  PROBLEM  claim gear_reducer_low_oil_pressure: no action or attack uses it, so it can never change a decision
+  PROBLEM  claim high_thrust_bearing_temp: no action or attack uses it, so it can never change a decision
+  PROBLEM  observe cool_down_required: no rule uses this reading
+  PROBLEM  observe cool_down_pump_required: no rule uses this reading
+  PROBLEM  observe thrust_bearing_temperature_thermometer: no rule uses this reading
+  PROBLEM  observe oil_pressure_gauge: no rule uses this reading
+  PROBLEM  observe oil_temperature_thermometer: no rule uses this reading
+  PROBLEM  observe oil_level_indicators: no rule uses this reading
+  PROBLEM  excuse greasing_heat: it attacks nothing, so it can never excuse anything
+
+rules to check first (a real quote does not mean a real rule):
+  FLAG     attack no_shutdown_during_fluctuation undercuts overheating_bearing
+           its quote never mentions overheating_bearing: either the manual does not say this, or it says it in another sentence and this is the wrong citation
+           quote: "The control system should be designed so that the engines can be started and operated when the electric power to the station is interrupted and automatic engine shutdown should not occur due to minor fluctuations in commercial power."
+  FLAG     claim overheating_bearing
+           its quote mentions oil_pressure_gauge, but the rule neither needs it nor is argued against by it: a condition in the sentence (often a 'not') may be missing
+           quote: "Automatic shutdown of the pumping unit and visual and audible alarms should be provided for high thrust-bearing temperature, high oil temperature, or low oil pressure."
+  FLAG     claim high_jacket_water_temp
+           its quote mentions bearing_temperature_high, cool_down_pump_required, oil_pressure_gauge, oil_temperature_thermometer, but the rule neither needs it nor is argued against by it: a condition in the sentence (often a 'not') may be missing
+           quote: "Visual and audible alarms and automatic engine shutdown (as a minimum) should occur for high jacket water temperature, high lubricating oil temperature, low lubricating oil pressure, gear reducer high lubricating oil temperature, or gear reducer low lubricating oil pressure."
+  FLAG     claim high_lubricating_oil_temp
+           its quote mentions bearing_temperature_high, cool_down_pump_required, oil_pressure_gauge, oil_temperature_thermometer, but the rule neither needs it nor is argued against by it: a condition in the sentence (often a 'not') may be missing
+           quote: "Visual and audible alarms and automatic engine shutdown (as a minimum) should occur for high jacket water temperature, high lubricating oil temperature, low lubricating oil pressure, gear reducer high lubricating oil temperature, or gear reducer low lubricating oil pressure."
+  FLAG     claim low_lubricating_oil_pressure
+           its quote mentions bearing_temperature_high, cool_down_pump_required, oil_pressure_gauge, oil_temperature_thermometer, but the rule neither needs it nor is argued against by it: a condition in the sentence (often a 'not') may be missing
+           quote: "Visual and audible alarms and automatic engine shutdown (as a minimum) should occur for high jacket water temperature, high lubricating oil temperature, low lubricating oil pressure, gear reducer high lubricating oil temperature, or gear reducer low lubricating oil pressure."
+  FLAG     claim gear_reducer_high_oil_temp
+           its quote mentions bearing_temperature_high, cool_down_pump_required, oil_pressure_gauge, oil_temperature_thermometer, but the rule neither needs it nor is argued against by it: a condition in the sentence (often a 'not') may be missing
+           quote: "Visual and audible alarms and automatic engine shutdown (as a minimum) should occur for high jacket water temperature, high lubricating oil temperature, low lubricating oil pressure, gear reducer high lubricating oil temperature, or gear reducer low lubricating oil pressure."
+  FLAG     claim gear_reducer_low_oil_pressure
+           its quote mentions bearing_temperature_high, cool_down_pump_required, oil_pressure_gauge, oil_temperature_thermometer, but the rule neither needs it nor is argued against by it: a condition in the sentence (often a 'not') may be missing
+           quote: "Visual and audible alarms and automatic engine shutdown (as a minimum) should occur for high jacket water temperature, high lubricating oil temperature, low lubricating oil pressure, gear reducer high lubricating oil temperature, or gear reducer low lubricating oil pressure."
+  FLAG     claim high_thrust_bearing_temp
+           its quote mentions oil_pressure_gauge, but the rule neither needs it nor is argued against by it: a condition in the sentence (often a 'not') may be missing
+           quote: "Automatic shutdown of the pumping unit and visual and audible alarms should be provided for high thrust-bearing temperature, high oil temperature, or low oil pressure."
+
+manual sentences no rule cites (11 of 21). A missing rule is usually in here, but not
+always: a sentence cited for one rule can state another that is still missing.
+  - Excerpt from US Army Corps of Engineers EM 1110-2-3105, Mechanical and Electrical Design of Pumping Stations (30 March 1994, with changes 1 and 2), a work of the United States Government and in the public domain.
+  - Paragraphs 8-2b (engine control equipment), 8-4 (gear drives, one passage), 9-7 (pump bearing lubrication, one passage) and 9-8 (pump bearing temperature system, one passage).
+  - Text as extracted from the published PDF; only line breaks and page furniture were removed.
+  - Manual and automatic control devices should be of the types regularly furnished by the engine manufacturer for similar service.
+  - The type of speed control devices will depend upon the desired scheme of operation, but a governor to maintain speed and a suitable speed indicator should be provided in all cases.
+  - Consideration can be given to an engine shutoff method for low sump water elevation.
+  - Engine controls are generally located adjacent to the engine.
+  - Redundant remote read-out of critical engine, pump, and gear parameters may be located in an operating office for large pumping stations.
+  - A control system for engines less than 300 kW (400 HP) rating can be equipped with a rechargeable battery system for its operation.
+  - Larger sized engines will require a separate engine-generator to provide electrical power for the control system.
+  - A means needs to be furnished to manually shutoff the intake air supply to the engine to provide for critical shutdown.

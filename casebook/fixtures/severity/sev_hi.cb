@@ -1,0 +1,12 @@
+casebook sev v1
+source "ENG-B10: does dropping a less-severe rebuttal change an outcome?" dated 2026-09-27 by "probe"
+observe vib "vibration high"
+observe load "load recently increased"
+
+claim wear "bearing wear is progressing" severity 9 needs vib
+claim benign "vibration is just the higher load" severity 9 needs load
+benign rebuts wear
+
+action stop safe when any wear
+action run idle
+prefer stop over run

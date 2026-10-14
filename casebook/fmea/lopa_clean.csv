@@ -1,0 +1,32 @@
+# A LOPA this tool must stay COMPLETELY SILENT on, except for the informational total.
+#
+# PROC-D4: every detector ships with a document it must fire on AND a document it must not. Without the second, a
+# detector that fires on everything looks exactly like a detector that works.
+#
+# This file is built to step as close to every check as possible WITHOUT tripping it, because a negative fixture
+# that is nowhere near the boundary tests nothing. Mutation testing proved that twice on the first version of this
+# file: deleting the SIL exemption and deleting the not-applicable guard both left the whole suite passing, because
+# nothing here came near either one. The rows below are arranged so that each of those guards is the only reason
+# this file is silent.
+#
+#   arithmetic        every row's product equals its stated answer exactly
+#   target            the total, 3.05E-05, is below the stated target of 1.00E-04
+#   not a protection  no layer name reads as an outcome probability
+#   shared layer      every layer is inapplicable to at least one cause, so none carries the whole scenario
+#   uniform pfd       three distinct PFD values, so no default was blanket-applied
+#
+#   credit limit      IPL 2 claims 0.001 AND names a PLC, which is the control family and is capped at 0.1. It is
+#                     silent only because the layer declares SIL 2 -- a function designed to the standard is
+#                     entitled to the credit, which is the entire point of the rating. Remove that exemption and
+#                     this file must report a false positive. lopa_over_credit.csv makes the identical claim
+#                     WITHOUT a SIL and is reported.
+#
+#   not independent   row 4's initiating cause is a control system failure, and IPL 2 is in the control family --
+#                     but IPL 2 is BLANK on that row, so it is not credited against that cause and there is
+#                     nothing to report. Remove the not-applicable guard and this file must report a layer that
+#                     the worksheet never claimed.
+Initiating Cause,Frequency,IPL 1: PSV-101 relief valve to flare,IPL 2: SIL 2 rated high level trip on LT-201 implemented in the safety PLC,IPL 3: Bund with 110% capacity,Mitigated Event Frequency,Target Risk Frequency
+Inlet line rupture from external corrosion,0.01,0.01,,0.1,1.00E-05,1.00E-04
+Overfilling during batch charging,0.1,,0.001,0.1,1.00E-05,
+Thermal expansion with the outlet isolated,0.05,0.01,0.001,,5.00E-07,
+Control system failure leaves the inlet valve open,0.01,0.01,,0.1,1.00E-05,

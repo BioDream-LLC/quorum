@@ -1,0 +1,61 @@
+--- run started 2026-09-29T17:35:10.1510141-05:00 ---
+--- poking COM4 at 1200 baud to request BOOTSEL ---
+--- poke threw: Exception calling "Open" with "0" argument(s): "A device attached to the system is not functioning.
+" (may still have worked) ---
+--- BOOTSEL drive D: found; copying uf2 ---
+--- opened COM4 at 2026-09-29T17:35:12.3573470-05:00 ---
+
+
+quorum on RP2350 -- worst-case execution time
+=============================================
+core clock            150000000 Hz
+casebook              centrifugal-pump v3
+source                FMEA-PUMP-001 rev C
+arguments / attacks   44 / 66
+worst-case state      0x0  (140 steps, proven bound 248)
+runs per measurement  2000
+
+fingerprint  expected 0x2E4C18A0  computed 0x2E4C18A0  OK
+
+cycle counter: DWT CYCCNT (32-bit)
+
+sweeping all 16384 states to find the true worst case...
+  worst state found     0x0  (21224 cycles, 140 steps)
+  cbc's kWorstCaseMask  0x0  (agrees)
+  scope                 instantiate + decide, cold cache, 4 runs per state
+                        NOT comparable to the 2571-instruction bound, which covers solve alone
+
+pump casebook, measured worst state 0x0
+  instantiate (build + finalize)     min   7607  mean   7608  max  10911 cycles   72.740 us
+  solve (grounded fixpoint)          min   2809  mean   2809  max   3681 cycles   24.540 us
+
+  static bound          2571 instructions (solve only)
+  measured / bound      1.43 cycles per instruction  -- AT OR UNDER the 2 CPI the README converts at
+
+  FULL CYCLE (instantiate+decide)    min  10975  mean  10977  max  15223 cycles   101.486 us
+  cold (sweep) vs warm  21224 vs 15223 cycles = 1.39 x penalty from the memory system
+
+  steps on device 140, predicted by cbc 140  MATCH
+  verdict         Decided -> continue
+  within bound    yes (140 <= 248)
+
+tank casebook, worst-case state 0x0, with the binding layer
+  binding: sample all + mask         min   1148  mean   1150  max   6611 cycles   44.073 us
+  FULL CYCLE (instantiate+decide)    min  10401  mean  10406  max  21130 cycles   140.866 us
+  witness: reconstruct derivation    min  15958  mean  15960  max  20897 cycles   139.313 us
+
+headroom
+  pump full cycle, warm     102 us
+  tank full cycle, warm     141 us
+  pump full cycle, cold     141 us
+  worst of the above        141 us  (tank + binding, warm cache)
+  cycles available at 10 ms  70
+  cycles available at 1 ms   7
+  max sustainable rate       7092 Hz
+
+Note what these numbers are and are not. They are the cost of adjudicating a casebook at its
+worst state on one core of an RP2350 at the clock printed above. They do not include reading real
+instruments over a real bus, which on a slow Modbus link will dominate everything measured here.
+
+done.
+--- run finished 2026-09-29T17:45:10.1906693-05:00 ---

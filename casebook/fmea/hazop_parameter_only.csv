@@ -1,0 +1,3 @@
+Node,Parameter,Cause,Consequence,Safeguards
+V-1,Level,LT-101 fails low,Overflow,LAH-102
+V-1,Level,LT-101 fails high,Cavitation,LAL-103

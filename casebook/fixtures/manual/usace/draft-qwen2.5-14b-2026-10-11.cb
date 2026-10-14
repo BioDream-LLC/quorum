@@ -1,0 +1,77 @@
+casebook em1110-2-3105-engine-controls-draft v1
+source "em1110-2-3105-engine-controls.txt" dated 2026-10-11 by "drafted by qwen2.5:14b from the manual; not yet approved"
+note "UNAPPROVED DRAFT: written by a language model from em1110-2-3105-engine-controls.txt. Every declaration below cites the sentence"
+note "it came from. Check each against the manual, add what the manual does not say, then delete"
+note "this note to approve. quorum studio will not build a chip image while it is here."
+
+# manual: "The lubrication system should be automatic with a control system that provides a prelube cycle before the pumps are allowed to start and an adjustable period between greasing cycles."
+observe greasing_cycles "adjustable period between greasing cycles"
+
+# manual: "The control system should be designed so that the engines can be started and operated when the electric power to the station is interrupted and automatic engine shutdown should not occur due to minor fluctuations in commercial power."
+observe power_fluctuation "minor fluctuations in commercial power"
+
+# manual: "The system should consist of resistance temperature detectors (RTD) mounted so that they are in contact with the bearing, and a monitoring system that allows display of individual bearing temperatures and alarms when preset high temperatures are exceeded."
+observe bearing_temperature_high "preset high temperatures are exceeded"
+
+# manual: "The controls should permit operation of the engine’s jacket water pump to allow cool down of the engine if required by the engine manufacturer."
+observe cool_down_required "engine requires cooling as per manufacturer's requirement"
+
+# manual: "If the jacket water pump is engine driven, then an auxiliary motor driven jacket water pump should be considered for cool down, if required."
+observe cool_down_pump_required "auxiliary motor driven jacket water pump should be considered for cool down if required"
+
+# manual: "All gears should be equipped with a thrust-bearing temperature thermometer, an oil pressure gage and temperature thermometer, and oil level indicators."
+observe thrust_bearing_temperature_thermometer "thrust-bearing temperature thermometer is present"
+
+# manual: "All gears should be equipped with a thrust-bearing temperature thermometer, an oil pressure gage and temperature thermometer, and oil level indicators."
+observe oil_pressure_gauge "oil pressure gauge is present"
+
+# manual: "All gears should be equipped with a thrust-bearing temperature thermometer, an oil pressure gage and temperature thermometer, and oil level indicators."
+observe oil_temperature_thermometer "oil temperature thermometer is present"
+
+# manual: "All gears should be equipped with a thrust-bearing temperature thermometer, an oil pressure gage and temperature thermometer, and oil level indicators."
+observe oil_level_indicators "oil level indicators are present"
+
+# manual: "Automatic engine shutdown is required for engine overspeed."
+claim overspeed_shutdown "automatic engine shutdown for overspeed" severity 7
+
+# manual: "Automatic shutdown of the pumping unit and visual and audible alarms should be provided for high thrust-bearing temperature, high oil temperature, or low oil pressure."
+claim overheating_bearing "bearing overheating" severity 7 needs bearing_temperature_high
+
+# manual: "Visual and audible alarms and automatic engine shutdown (as a minimum) should occur for high jacket water temperature, high lubricating oil temperature, low lubricating oil pressure, gear reducer high lubricating oil temperature, or gear reducer low lubricating oil pressure."
+claim high_jacket_water_temp "high jacket water temperature" severity 7
+
+# manual: "Visual and audible alarms and automatic engine shutdown (as a minimum) should occur for high jacket water temperature, high lubricating oil temperature, low lubricating oil pressure, gear reducer high lubricating oil temperature, or gear reducer low lubricating oil pressure."
+claim high_lubricating_oil_temp "high lubricating oil temperature" severity 7
+
+# manual: "Visual and audible alarms and automatic engine shutdown (as a minimum) should occur for high jacket water temperature, high lubricating oil temperature, low lubricating oil pressure, gear reducer high lubricating oil temperature, or gear reducer low lubricating oil pressure."
+claim low_lubricating_oil_pressure "low lubricating oil pressure" severity 7
+
+# manual: "Visual and audible alarms and automatic engine shutdown (as a minimum) should occur for high jacket water temperature, high lubricating oil temperature, low lubricating oil pressure, gear reducer high lubricating oil temperature, or gear reducer low lubricating oil pressure."
+claim gear_reducer_high_oil_temp "gear reducer high lubricating oil temperature" severity 7
+
+# manual: "Visual and audible alarms and automatic engine shutdown (as a minimum) should occur for high jacket water temperature, high lubricating oil temperature, low lubricating oil pressure, gear reducer high lubricating oil temperature, or gear reducer low lubricating oil pressure."
+claim gear_reducer_low_oil_pressure "gear reducer low lubricating oil pressure" severity 7
+
+# manual: "Automatic shutdown of the pumping unit and visual and audible alarms should be provided for high thrust-bearing temperature, high oil temperature, or low oil pressure."
+claim high_thrust_bearing_temp "high thrust-bearing temperature" severity 7 needs bearing_temperature_high
+
+# manual: "The control system should be designed so that the engines can be started and operated when the electric power to the station is interrupted and automatic engine shutdown should not occur due to minor fluctuations in commercial power."
+excuse no_shutdown_during_fluctuation "automatic engine shutdown should not occur during minor fluctuations in commercial power" needs power_fluctuation
+
+# manual: "The lubrication system should be automatic with a control system that provides a prelube cycle before the pumps are allowed to start and an adjustable period between greasing cycles."
+excuse greasing_heat "grease churning warms it briefly" needs greasing_cycles
+
+# manual: "The control system should be designed so that the engines can be started and operated when the electric power to the station is interrupted and automatic engine shutdown should not occur due to minor fluctuations in commercial power."
+no_shutdown_during_fluctuation undercuts overheating_bearing
+
+# manual: "Automatic engine shutdown should not occur due to minor fluctuations in commercial power."
+no_shutdown_during_fluctuation undercuts overspeed_shutdown
+
+# manual: "All engines will be designed for manual starting."
+action keep_running idle
+
+# manual: "Automatic shutdown of the pumping unit and visual and audible alarms should be provided for high thrust-bearing temperature, high oil temperature, or low oil pressure."
+action stop_pump safe when any overheating_bearing
+
+# manual: "All engines will be designed for manual starting."
+prefer stop_pump over keep_running

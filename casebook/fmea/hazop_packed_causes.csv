@@ -1,0 +1,5 @@
+Deviation,Cause,Consequence,Safeguards
+High level,"- LT-101 fails low
+- Inlet valve XV-1 stuck open
+- Operator overfills manually",Overflow,LAH-102
+Low flow,"Strainer fouled; pump P-1 trips; suction valve closed",Cavitation,FAL-105

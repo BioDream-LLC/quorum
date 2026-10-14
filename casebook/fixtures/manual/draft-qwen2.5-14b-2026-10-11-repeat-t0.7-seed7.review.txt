@@ -1,0 +1,18 @@
+REVIEW -- what the checks cannot decide. Start here.
+
+draft as a whole:
+  PROBLEM  claim failed_to_start: no action or attack uses it, so it can never change a decision
+  PROBLEM  claim idle: no action or attack uses it, so it can never change a decision
+  PROBLEM  claim overheating: no action or attack uses it, so it can never change a decision
+  PROBLEM  claim dry_run_hazardous: no action or attack uses it, so it can never change a decision
+
+rules to check first (a real quote does not mean a real rule):
+  FLAG     claim idle
+           its quote never mentions high_water_off: either the manual does not say this, or it says it in another sentence and this is the wrong citation
+           quote: "When the float switch is open and no other signal is present, the pump is idle and no action is needed."
+
+manual sentences no rule cites (3 of 17). A missing rule is usually in here, but not
+always: a sentence cited for one rule can state another that is still missing.
+  - The pump controller reports four signals.
+  - A pump that has failed to start must be reported to maintenance immediately.
+  - During the weekly test the operator runs the pump with the pit empty for up to one minute.

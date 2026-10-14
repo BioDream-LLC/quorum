@@ -1,0 +1,246 @@
+--- run started 2026-10-01T12:32:03.1274383-05:00 ---
+--- Uno R4 on COM3 at 2026-10-01T12:32:03.6552172-05:00; uploading ---
+upload: DFU state(2) = dfuIDLE, status(0) = No error condition is present
+upload: Done!
+upload: New upload port: COM3 (serial)
+
+=== quorum: a LEARNED casebook on Arduino (report 0) ===
+casebook        monks-1-knows-2
+core clock      48000000
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     18924 cycles = 394.250 us (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on Arduino (report 1) ===
+casebook        monks-1-knows-2
+core clock      48000000
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     18924 cycles = 394.250 us (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on Arduino (report 2) ===
+casebook        monks-1-knows-2
+core clock      48000000
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     18924 cycles = 394.250 us (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on Arduino (report 3) ===
+casebook        monks-1-knows-2
+core clock      48000000
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     18924 cycles = 394.250 us (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on Arduino (report 4) ===
+casebook        monks-1-knows-2
+core clock      48000000
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     18924 cycles = 394.250 us (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on Arduino (report 5) ===
+casebook        monks-1-knows-2
+core clock      48000000
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     18924 cycles = 394.250 us (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on Arduino (report 6) ===
+casebook        monks-1-knows-2
+core clock      48000000
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     18924 cycles = 394.250 us (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on Arduino (report 7) ===
+casebook        monks-1-knows-2
+core clock      48000000
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     18924 cycles = 394.250 us (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on Arduino (report 8) ===
+casebook        monks-1-knows-2
+core clock      48000000
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     18924 cycles = 394.250 us (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on Arduino (report 9) ===
+casebook        monks-1-knows-2
+core clock      48000000
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     18924 cycles = 394.250 us (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on Arduino (report 10) ===
+casebook        monks-1-knows-2
+core clock      48000000
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     18924 cycles = 394.250 us (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on Arduino (report 11) ===
+casebook        monks-1-knows-2
+core clock      48000000
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     18924 cycles = 394.250 us (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on Arduino (report 12) ===
+casebook        monks-1-knows-2
+core clock      48000000
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     18924 cycles = 394.250 us (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on Arduino (report 13) ===
+casebook        monks-1-knows-2
+core clock      48000000
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     18924 cycles = 394.250 us (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on Arduino (report 14) ===
+casebook        monks-1-knows-2
+core clock      48000000
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     18924 cycles = 394.250 us (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on Arduino (report 15) ===
+casebook        monks-1-knows-2
+core clock      48000000
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     18924 cycles = 394.250 us (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on Arduino (report 16) ===
+casebook        monks-1-knows-2
+core clock      48000000
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     18924 cycles = 394.250 us (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on Arduino (report 17) ===
+casebook        monks-1-knows-2
+core clock      48000000
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     18924 cycles = 394.250 us (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on Arduino (report 18) ===
+casebook        monks-1-knows-2
+core clock      48000000
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     18924 cycles = 394.250 us (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on Arduino (report 19) ===
+casebook        monks-1-knows-2
+core clock      48000000
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     18924 cycles = 394.250 us (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+--- run finished 2026-10-01T12:33:14.0559606-05:00 ---

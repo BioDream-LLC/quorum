@@ -1,0 +1,833 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>quorum studio</title>
+<style>
+  :root { --navy:#141B34; --ink:#1E293B; --teal:#14B8A6; --violet:#6C4BE8; --amber:#F59E0B; --rose:#E11D6B;
+          --sky:#2E8BE8; --red:#DC2626; --green:#22A55A; --slate:#5B677D; --mist:#F4F6FB; --cloud:#E4E9F2;
+          --line:20px; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:"Segoe UI",system-ui,sans-serif; background:var(--mist); color:var(--ink); }
+  header { background:var(--navy); color:#fff; padding:14px 28px; display:flex; align-items:center; gap:16px;
+           border-bottom:4px solid var(--teal); }
+  header h1 { margin:0; font-size:22px; } header h1 span { color:var(--teal); }
+  header .tag { margin-left:auto; font-size:12px; color:#F8B4B4; }
+  main { display:grid; grid-template-columns: minmax(340px, 2fr) 3fr; gap:18px; padding:18px 28px; }
+  section { background:#fff; border:1px solid var(--cloud); border-radius:12px; padding:16px 18px;
+            border-left:6px solid var(--c, var(--teal)); min-width:0; }
+  section.wide { grid-column: 1 / -1; }
+  h2 { margin:0 0 4px; font-size:17px; } h2 b { color:var(--c, var(--teal)); margin-right:6px; }
+  p.hint { margin:0 0 10px; color:var(--slate); font-size:13px; }
+  button, select, label.btn { font:inherit; font-size:14px; border-radius:8px; padding:7px 13px; border:0;
+            cursor:pointer; background:var(--c, var(--teal)); color:#fff; font-weight:600; }
+  button.ghost, select { background:var(--cloud); color:var(--ink); }
+  button.small { padding:4px 9px; font-size:12.5px; }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  button:focus-visible, select:focus-visible, input:focus-visible, label.btn:focus-within { outline:3px solid var(--sky); outline-offset:1px; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
+  input[type=file] { display:none; }
+  input[type=text], input[type=search] { font:inherit; font-size:13px; padding:6px 9px; border:1px solid var(--cloud);
+            border-radius:7px; min-width:0; }
+  pre { white-space:pre-wrap; font-family:Consolas,monospace; font-size:12.5px; background:var(--mist);
+        border-radius:8px; padding:10px; max-height:380px; overflow:auto; margin:0; }
+  .verdict { border-radius:10px; padding:12px 14px; font-weight:700; margin-bottom:10px; display:none; }
+  .verdict.ok { display:block; background:#DCF5E6; color:#166534; }
+  .verdict.no { display:block; background:#FDE2E2; color:#991B1B; }
+  .tabs button { background:var(--cloud); color:var(--ink); padding:6px 12px; font-size:13px; }
+  .tabs button.on { background:var(--ink); color:#fff; }
+  .device { white-space:pre-wrap; font-family:Consolas,monospace; background:var(--navy); color:var(--teal); padding:8px 10px;
+            border-radius:8px; font-size:12.5px; }
+  .status { font-size:13px; color:#94A3B8; }
+
+  /* ── editor ── */
+  .findbar { display:none; gap:6px; align-items:center; flex-wrap:wrap; background:var(--mist); border-radius:8px;
+             padding:6px 8px; margin-bottom:6px; font-size:13px; }
+  .findbar.open { display:flex; }
+  .findbar input[type=text] { width:170px; }
+  .findbar .count { color:var(--slate); min-width:70px; }
+  .editor { display:flex; height:480px; border-radius:8px; background:#1F2937; overflow:hidden;
+            font-family:Consolas,"Cascadia Mono",monospace; font-size:13px; line-height:var(--line); }
+  .gutter { flex:0 0 auto; min-width:46px; padding:10px 8px 10px 6px; text-align:right; color:#64748B;
+            background:#111827; overflow:hidden; white-space:pre; user-select:none; cursor:pointer; padding-bottom:80px; }
+  .gutter .err { color:#fff; background:var(--red); border-radius:3px; }
+  .gutter .warn { color:#111827; background:var(--amber); border-radius:3px; }
+  .gutter .todo { color:var(--amber); }
+  .code { position:relative; flex:1; min-width:0; }
+  .code pre.hl, .code textarea { position:absolute; inset:0; margin:0; padding:10px; font:inherit; line-height:var(--line);
+            white-space:pre; overflow:auto; tab-size:4; border:0; border-radius:0; max-height:none; background:transparent; }
+  /* Extra bottom room: the textarea's own scrollbar lets it scroll further than a layer with none, and a layer
+     that cannot follow drifts a line out of step with the text. */
+  .code pre.hl { color:#E5E7EB; overflow:hidden; pointer-events:none; padding-bottom:80px; }
+  .code textarea { color:transparent; caret-color:#F9FAFB; resize:none; outline:none; }
+  .code textarea::selection { background:rgba(46,139,232,.45); color:transparent; }
+  .t-kw  { font-weight:700; } .k-observe{color:#F472B6} .k-claim{color:#60A5FA} .k-excuse{color:#FBBF24}
+  .k-doubt{color:#A78BFA} .k-action{color:#2DD4BF} .k-meta{color:#94A3B8} .k-other{color:#F9FAFB}
+  .t-op { color:#7DD3FC; } .t-str { color:#86EFAC; } .t-num { color:#FDBA74; } .t-com { color:#6B7280; font-style:italic; }
+  .t-todo { background:#92400E; color:#FDE68A; border-radius:2px; }
+  .m-find { background:rgba(250,204,21,.35); border-radius:2px; } .m-cur { background:#FACC15; color:#111827; }
+  .m-line { background:rgba(220,38,38,.25); }
+  .todos { margin-top:8px; max-height:150px; overflow:auto; border:1px solid var(--cloud); border-radius:8px; }
+  .todos button, .out button { display:block; width:100%; text-align:left; background:#fff; color:var(--ink);
+            border-radius:0; font-weight:400; font-size:12.5px; padding:5px 10px; border-bottom:1px solid var(--cloud);
+            font-family:Consolas,monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .todos button:hover, .out button:hover { background:#FEF3C7; }
+  .todos b, .out b { color:var(--amber); margin-right:8px; }
+  .out { max-height:380px; overflow:auto; background:var(--mist); border-radius:8px; font-family:Consolas,monospace;
+         font-size:12.5px; }
+  .out div { white-space:pre-wrap; padding:1px 10px; }
+  .out button.e { color:#991B1B; background:#FEF2F2; } .out button.w { color:#92400E; background:#FFFBEB; }
+
+  /* ── worksheet ── */
+  .sheetwrap { max-height:460px; overflow:auto; border:1px solid var(--cloud); border-radius:8px; }
+  table.sheet { border-collapse:collapse; font-size:12.5px; min-width:100%; }
+  table.sheet td, table.sheet th { border:1px solid var(--cloud); padding:4px 7px; vertical-align:top; min-width:90px; max-width:340px; }
+  table.sheet th { background:var(--mist); position:sticky; top:0; font-weight:600; color:var(--slate); z-index:1; white-space:nowrap; }
+  table.sheet th button { padding:0 5px; margin-left:6px; font-size:11px; background:transparent; color:var(--slate); }
+  table.sheet th button:hover { color:var(--red); }
+  table.sheet td.n { min-width:0; color:var(--slate); background:var(--mist); text-align:right; white-space:nowrap; }
+  table.sheet td[contenteditable]:focus { outline:2px solid var(--sky); background:#EFF6FF; }
+  table.sheet tr.hit td { background:#FEF9C3; } table.sheet tr.miss { display:none; }
+  table.sheet tr.edited td.n { color:var(--amber); font-weight:700; }
+</style>
+</head>
+<body>
+<header>
+  <h1><span>quorum</span> studio</h1>
+  <div class="status">rulebook in, checked chip image out</div>
+</header>
+<main>
+  <section style="--c:var(--violet)">
+    <h2><b>1</b>Load</h2>
+    <p class="hint">Open a casebook, start from a safety worksheet, or try an example.</p>
+    <div class="row">
+      <label class="btn" style="--c:var(--violet)" tabindex="0">Open casebook (.cb)<input id="cbfile" type="file" accept=".cb,.txt"></label>
+    </div>
+    <div class="row">
+      <select id="kind" aria-label="Worksheet kind"><option value="hazop">HAZOP worksheet</option>
+        <option value="lopa">LOPA worksheet</option><option value="fmea">FMEA worksheet</option></select>
+      <label class="btn" style="--c:var(--violet)" tabindex="0">Import worksheet (.csv)<input id="wsfile" type="file" accept=".csv,.txt"></label>
+    </div>
+    <div class="row">
+      <label class="btn" style="--c:var(--violet)" tabindex="0">Learn from past records (.csv)<input id="recfile" type="file" accept=".csv,.txt"></label>
+    </div>
+    <div id="learnbox" style="display:none; background:var(--mist); border-radius:8px; padding:10px; margin-bottom:10px">
+      <p class="hint" id="recinfo"></p>
+      <div class="row"><label for="outcol" style="font-size:13px; width:150px">What happened is in</label>
+        <select id="outcol"></select></div>
+      <div class="row"><label for="posval" style="font-size:13px; width:150px">...and it happened when</label>
+        <select id="posval"></select></div>
+      <div class="row"><label for="assword" style="font-size:13px; width:150px">Call that outcome</label>
+        <input type="text" id="assword" value="failure" style="width:140px">
+        <label for="kval" style="font-size:13px">observations</label>
+        <input type="text" id="kval" value="10" style="width:46px" aria-label="Number of observations (1 to 20)"></div>
+      <p class="hint" style="margin:4px 0">Leave out (columns filled in after the event, IDs, anything the machine cannot know beforehand):</p>
+      <div id="ignorelist" style="display:flex; flex-wrap:wrap; gap:4px 14px; font-size:12.5px; margin-bottom:8px"></div>
+      <div class="row"><button style="--c:var(--violet)" id="learn">Learn a draft rulebook</button></div>
+    </div>
+    <div class="row">
+      <label class="btn" style="--c:var(--violet)" tabindex="0">Draft from a manual (.txt)<input id="manfile" type="file" accept=".txt,.md"></label>
+    </div>
+    <div id="draftbox" style="display:none; background:var(--mist); border-radius:8px; padding:10px; margin-bottom:10px">
+      <p class="hint" id="maninfo"></p>
+      <div class="row"><label for="mserver" style="font-size:13px; width:110px">AI model</label>
+        <select id="mserver"><option value="local">on this computer (Ollama)</option>
+          <option value="hosted">hosted service (OpenAI-compatible, e.g. OpenRouter)</option></select></div>
+      <div class="row"><label for="mendpoint" style="font-size:13px; width:110px">Address</label>
+        <input type="text" id="mendpoint" value="http://localhost:11434" style="flex:1"></div>
+      <div class="row"><label for="mmodel" style="font-size:13px; width:110px">Model</label>
+        <input type="text" id="mmodel" value="qwen2.5:14b" style="flex:1"></div>
+      <div id="hostedonly" style="display:none">
+        <div class="row"><label for="mkey" style="font-size:13px; width:110px">Key</label>
+          <input type="password" id="mkey" autocomplete="off" placeholder="leave empty to use QUORUM_LLM_KEY" style="flex:1"></div>
+        <p class="hint" style="margin:2px 0 6px">The key is used for this draft only and is never saved.</p>
+        <label style="font-size:12.5px; display:block; margin-bottom:8px"><input type="checkbox" id="mremote">
+          Send the manual, and quorum's drafting instructions, to this service. For OpenRouter, quorum asks only for
+          providers that keep no copy and do not train on it.</label>
+      </div>
+      <div class="row"><button style="--c:var(--violet)" id="draft">Draft a rulebook</button>
+        <button class="ghost small" id="draftcancel" style="display:none">Cancel</button></div>
+      <pre id="draftlog" style="display:none; max-height:180px; overflow:auto; font-size:11.5px"></pre>
+      <p class="hint">The AI only proposes. Every rule it keeps quotes the manual word for word, mistakes are sent back
+        to it, and the draft is marked unapproved: no chip image can be built until a person approves it.</p>
+    </div>
+    <div class="row">
+      <select id="examples" aria-label="Examples"><option value="">Examples...</option></select>
+    </div>
+    <p class="hint" id="loaded"></p>
+    <div id="approvebox" style="display:none; background:var(--mist); border-radius:8px; padding:10px; margin-bottom:10px">
+      <p class="hint" style="margin-top:0">This rulebook is an <b>unapproved AI draft</b>. Read the draft review, check every
+        rule against the manual, fix what is wrong, then approve it.</p>
+      <div class="row"><label for="approver" style="font-size:13px; width:110px">Approved by</label>
+        <input type="text" id="approver" placeholder="your name" style="flex:1">
+        <button style="--c:var(--violet)" id="approve">Approve draft</button></div>
+    </div>
+    <div id="findings" style="display:none">
+      <div class="row tabs"><button id="tabA" class="on">What the worksheet shows</button><button id="tabR">Review report</button></div>
+      <pre id="findtext"></pre>
+      <div id="wsonly">
+      <div class="row" style="margin-top:8px"><button class="ghost small" id="gosheet">Edit the worksheet itself ↓</button></div>
+      <p class="hint">An imported draft is never finished. A worksheet does not record excuses, severities or the
+        machine's safe action, so the check refuses it until an engineer adds them (see the to-do list). That is by design.</p>
+      </div>
+    </div>
+  </section>
+
+  <section style="--c:var(--teal)">
+    <h2><b>2</b>Rulebook</h2>
+    <p class="hint">Plain words: observe, claim, excuse, doubt, action. Ctrl+F find, Ctrl+H replace. Click a line number to select the line.</p>
+    <div class="row">
+      <button class="ghost small" id="openfind">Find / replace</button>
+      <input type="text" id="goto" placeholder="Go to line" style="width:100px" aria-label="Go to line">
+      <span class="status" id="pos">line 1, col 1</span>
+    </div>
+    <div class="findbar" id="findbar" role="search">
+      <input type="text" id="find" placeholder="Find" aria-label="Find">
+      <input type="text" id="repl" placeholder="Replace with" aria-label="Replace with">
+      <label><input type="checkbox" id="fcase"> Match case</label>
+      <label><input type="checkbox" id="fword"> Whole word</label>
+      <button class="ghost small" id="fprev" title="Previous (Shift+Enter)">↑</button>
+      <button class="ghost small" id="fnext" title="Next (Enter)">↓</button>
+      <button class="ghost small" id="frep">Replace</button>
+      <button class="ghost small" id="fall">Replace all</button>
+      <span class="count" id="fcount"></span>
+      <button class="ghost small" id="fclose" title="Close (Esc)">✕</button>
+    </div>
+    <div class="editor">
+      <div class="gutter" id="gutter" aria-hidden="true"></div>
+      <div class="code">
+        <pre class="hl" id="hl" aria-hidden="true"></pre>
+        <textarea id="src" spellcheck="false" wrap="off" aria-label="Rulebook source"
+                  placeholder="casebook my_machine v1&#10;..."></textarea>
+      </div>
+    </div>
+    <div class="row" style="margin:8px 0 0"><b style="font-size:13px">To do</b>
+      <span class="status" id="todocount">nothing marked TODO</span></div>
+    <div class="todos" id="todos" style="display:none"></div>
+  </section>
+
+  <section style="--c:var(--amber)">
+    <h2><b>3</b>Check every situation</h2>
+    <p class="hint">quorum tries every combination of sensor readings. One problem anywhere, and no image is made.
+      Click an error to jump to its line.</p>
+    <div class="row"><button id="check" style="--c:var(--amber)">Check</button>
+      <button class="ghost" id="save">Save rulebook</button></div>
+    <div class="row" style="font-size:13px">
+      <span>Also on this chip:</span>
+      <label class="btn ghost small" style="background:var(--cloud); color:var(--ink)" tabindex="0">Add casebook<input id="extrafile" type="file" accept=".cb,.txt"></label>
+      <select id="extraex" aria-label="Add an example to this chip"><option value="">Add an example...</option></select>
+      <span id="extras" class="status">nothing else</span>
+    </div>
+    <div id="verdict" class="verdict" role="status"></div>
+    <div class="out" id="out"><div>Nothing checked yet.</div></div>
+  </section>
+
+  <section style="--c:var(--green)">
+    <h2><b>4</b>Chip image</h2>
+    <p class="hint">Only a rulebook that passed every check becomes an image. The chip re-checks its fingerprint at start-up.</p>
+    <div class="row">
+      <select id="board" aria-label="Board"><option value="pico2">Raspberry Pi Pico 2</option>
+        <option value="unor4">Arduino Uno R4 Minima</option></select>
+      <a id="dl"><button id="download" style="--c:var(--green)" disabled>Download image</button></a>
+      <button id="flash" style="--c:var(--green)" disabled>Write to board</button>
+    </div>
+    <p class="hint" id="flashmsg"></p>
+    <p class="hint">The board will print this line. If it matches, the chip decided every situation exactly as checked here:</p>
+    <div class="device" id="sweep">-</div>
+    <pre id="info" style="margin-top:10px">-</pre>
+  </section>
+
+  <section class="wide" id="sheetsec" style="--c:var(--sky); display:none">
+    <h2><b>✎</b>Worksheet</h2>
+    <p class="hint">The imported spreadsheet, editable. Click a cell to change it. Re-import to redraft the rulebook
+      from your changes; download to keep them. Changed rows are marked in amber.</p>
+    <div class="row">
+      <input type="search" id="sheetfind" placeholder="Search the worksheet" style="width:240px" aria-label="Search the worksheet">
+      <label class="status"><input type="checkbox" id="sheetonly"> only matching rows</label>
+      <span class="status" id="sheetcount"></span>
+      <button class="ghost small" id="addrow">Add row</button>
+      <button class="ghost small" id="addcol">Add column</button>
+      <button class="ghost small" id="sundo" title="Undo (Ctrl+Z)" disabled>Undo</button>
+      <button class="ghost small" id="sredo" title="Redo (Ctrl+Y)" disabled>Redo</button>
+      <button style="--c:var(--violet)" class="small" id="reimport">Re-import into rulebook</button>
+      <button class="ghost small" id="savecsv">Download .csv</button>
+      <span class="status" id="sheetname"></span>
+    </div>
+    <div class="sheetwrap"><table class="sheet" id="sheet"></table></div>
+  </section>
+</main>
+<script>
+"use strict";
+const TOKEN = "{{TOKEN}}";
+const $ = id => document.getElementById(id);
+const src = $("src"), hl = $("hl"), gutter = $("gutter");
+let name = "casebook", imageId = null, analysis = "", report = "";
+let marks = new Map();           // line -> "err" | "warn"  (from the last check)
+let matches = [], cur = -1;      // find results: [start, end] offsets into src.value
+let draftPristine = "";          // the rulebook as last drafted, to warn before a re-import overwrites edits
+
+// ── helpers ───────────────────────────────────────────────────────────────────────────────────────────────────────
+async function api(path, body) {
+  const r = await fetch(path, { method: body ? "POST" : "GET",
+    headers: { "X-Quorum-Token": TOKEN, "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+function readFile(input) {
+  return new Promise((ok, no) => { const f = input.files[0]; if (!f) return no();
+    const rd = new FileReader(); rd.onload = () => ok({ name: f.name, text: rd.result }); rd.onerror = no; rd.readAsText(f); });
+}
+function download(text, file, type) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type })); a.download = file; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+// ── syntax colouring ──────────────────────────────────────────────────────────────────────────────────────────────
+// Per-character classes, then runs of equal class become spans. Simple, and fast enough for casebooks of a few
+// thousand lines. Every character is escaped before it is wrapped, so file content can never become markup.
+const HEADS = { observe: "k-observe", claim: "k-claim", excuse: "k-excuse", doubt: "k-doubt", action: "k-action",
+  channel: "k-observe", threshold: "k-observe", exclusive: "k-doubt", vote: "k-claim", prefer: "k-excuse",
+  casebook: "k-meta", source: "k-meta", note: "k-meta" };
+const OPS = new Set(["needs", "when", "undercuts", "undermines", "rebuts", "safe", "idle", "severity", "over", "unit",
+  "range", "stale_after", "flatline_after", "above", "below", "release", "dated", "by", "of", "asserts"]);
+
+function classify(line) {
+  const c = new Array(line.length).fill("");
+  let i = 0, first = true;
+  while (i < line.length) {
+    const ch = line[i];
+    if (ch === "#") { for (let k = i; k < line.length; k++) c[k] = "t-com"; break; }
+    if (ch === '"') {
+      let k = i + 1; while (k < line.length && line[k] !== '"') k++;
+      for (let j = i; j <= Math.min(k, line.length - 1); j++) c[j] = "t-str";
+      i = k + 1; first = false; continue;
+    }
+    if (/[A-Za-z_]/.test(ch)) {
+      let k = i; while (k < line.length && /[A-Za-z0-9_\-.]/.test(line[k])) k++;
+      const w = line.slice(i, k);
+      let cls = "";
+      if (first) cls = "t-kw " + (HEADS[w] || "k-other");
+      else if (OPS.has(w)) cls = "t-op";
+      for (let j = i; j < k; j++) c[j] = cls;
+      i = k; first = false; continue;
+    }
+    if (/[0-9]/.test(ch)) {
+      let k = i; while (k < line.length && /[0-9.]/.test(line[k])) k++;
+      for (let j = i; j < k; j++) c[j] = "t-num";
+      i = k; first = false; continue;
+    }
+    i++;
+  }
+  for (let at = line.indexOf("TODO"); at >= 0; at = line.indexOf("TODO", at + 4))
+    for (let j = at; j < at + 4; j++) c[j] = "t-todo";
+  return c;
+}
+
+function render() {
+  const text = src.value, lines = text.split("\n");
+  const found = matches.map((m, i) => [m[0], m[1], i === cur ? "m-cur" : "m-find"]);
+  let html = "", offset = 0, fi = 0, nums = "";
+  const todoLines = new Set();
+  lines.forEach((line, n) => {
+    const cls = classify(line);
+    while (fi < found.length && found[fi][1] <= offset) fi++;
+    for (let k = fi; k < found.length && found[k][0] < offset + line.length; k++)
+      for (let j = Math.max(found[k][0], offset); j < Math.min(found[k][1], offset + line.length); j++)
+        cls[j - offset] += " " + found[k][2];
+    let out = "", run = "", runCls = null;
+    for (let j = 0; j < line.length; j++) {
+      if (cls[j] !== runCls) { if (run) out += runCls ? `<span class="${runCls}">${esc(run)}</span>` : esc(run); run = ""; runCls = cls[j]; }
+      run += line[j];
+    }
+    if (run) out += runCls ? `<span class="${runCls}">${esc(run)}</span>` : esc(run);
+    const mk = marks.get(n + 1);
+    html += (mk === "err" ? `<span class="m-line">${out || " "}</span>` : out) + "\n";
+    if (line.includes("TODO")) todoLines.add(n + 1);
+    const klass = mk || (todoLines.has(n + 1) ? "todo" : "");
+    nums += (klass ? `<span class="${klass}">${n + 1}</span>` : String(n + 1)) + "\n";
+    offset += line.length + 1;
+  });
+  hl.innerHTML = html + " ";
+  gutter.innerHTML = nums;
+  renderTodos(lines);
+  syncScroll();
+}
+let pending = false;
+function schedule() { if (!pending) { pending = true; requestAnimationFrame(() => { pending = false; render(); }); } }
+function syncScroll() { hl.scrollTop = src.scrollTop; hl.scrollLeft = src.scrollLeft; gutter.scrollTop = src.scrollTop; }
+src.addEventListener("scroll", syncScroll);
+
+// ── navigation ────────────────────────────────────────────────────────────────────────────────────────────────────
+function lineStart(n) { const ls = src.value.split("\n"); let o = 0; for (let i = 0; i < n - 1 && i < ls.length; i++) o += ls[i].length + 1; return o; }
+// focus=false when called while the user is typing in the find box: moving focus would send their next keystrokes
+// into the rulebook.
+function revealOffset(start, end, focus = true) {
+  if (focus) src.focus();
+  src.setSelectionRange(start, end);
+  const line = src.value.slice(0, start).split("\n").length;
+  const lh = parseFloat(getComputedStyle(src).lineHeight) || 20;
+  const y = (line - 1) * lh;
+  if (y < src.scrollTop || y > src.scrollTop + src.clientHeight - 2 * lh) src.scrollTop = Math.max(0, y - src.clientHeight / 3);
+  syncScroll(); updatePos();
+}
+function gotoLine(n) {
+  const count = src.value.split("\n").length; n = Math.max(1, Math.min(count, n | 0));
+  const s = lineStart(n), e = s + (src.value.split("\n")[n - 1] || "").length;
+  revealOffset(s, e);
+}
+function updatePos() {
+  const before = src.value.slice(0, src.selectionStart).split("\n");
+  $("pos").textContent = `line ${before.length}, col ${before[before.length - 1].length + 1}`;
+}
+["keyup", "click", "select"].forEach(ev => src.addEventListener(ev, updatePos));
+gutter.addEventListener("click", e => {
+  const lh = parseFloat(getComputedStyle(src).lineHeight) || 20;
+  const rect = gutter.getBoundingClientRect();
+  gotoLine(Math.floor((e.clientY - rect.top - 10 + gutter.scrollTop) / lh) + 1);
+});
+$("goto").addEventListener("keydown", e => { if (e.key === "Enter") { gotoLine(parseInt($("goto").value, 10) || 1); $("goto").value = ""; } });
+
+// ── TODO list ─────────────────────────────────────────────────────────────────────────────────────────────────────
+function renderTodos(lines) {
+  const box = $("todos"); box.textContent = "";
+  let n = 0;
+  lines.forEach((l, i) => {
+    if (!l.includes("TODO")) return;
+    n++;
+    const b = document.createElement("button");
+    const k = document.createElement("b"); k.textContent = "line " + (i + 1);
+    b.append(k, document.createTextNode(l.trim()));
+    b.onclick = () => { const s = lineStart(i + 1), at = s + l.indexOf("TODO"); revealOffset(at, at + 4); };
+    box.appendChild(b);
+  });
+  box.style.display = n ? "block" : "none";
+  $("todocount").textContent = n ? `${n} place${n === 1 ? "" : "s"} marked TODO: an engineer must decide these` : "nothing marked TODO";
+}
+
+// ── find and replace ──────────────────────────────────────────────────────────────────────────────────────────────
+function openFind(replace) {
+  $("findbar").classList.add("open");
+  const sel = src.value.slice(src.selectionStart, src.selectionEnd);
+  if (sel && !sel.includes("\n")) $("find").value = sel;
+  (replace ? $("repl") : $("find")).focus(); $("find").select(); search(false);
+}
+function closeFind() { $("findbar").classList.remove("open"); matches = []; cur = -1; $("fcount").textContent = ""; schedule(); src.focus(); }
+function pattern() {
+  const q = $("find").value; if (!q) return null;
+  let p = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if ($("fword").checked) p = "\\b" + p + "\\b";
+  return new RegExp(p, $("fcase").checked ? "g" : "gi");
+}
+function search(move) {
+  const re = pattern(); matches = [];
+  if (re) for (let m; (m = re.exec(src.value)); ) { matches.push([m.index, m.index + m[0].length]); if (!m[0].length) re.lastIndex++; }
+  if (!matches.length) { cur = -1; $("fcount").textContent = $("find").value ? "no matches" : ""; schedule(); return; }
+  const from = src.selectionStart;
+  cur = matches.findIndex(m => m[0] >= from); if (cur < 0) cur = 0;
+  $("fcount").textContent = `${cur + 1} of ${matches.length}`;
+  if (move) revealOffset(matches[cur][0], matches[cur][1], false);
+  schedule();
+}
+function step(d) {
+  if (!matches.length) return search(true);
+  cur = (cur + d + matches.length) % matches.length;
+  $("fcount").textContent = `${cur + 1} of ${matches.length}`;
+  revealOffset(matches[cur][0], matches[cur][1], false); schedule();
+}
+// Edits go through execCommand where available so Ctrl+Z still undoes them.
+function replaceRange(start, end, text) {
+  const back = document.activeElement;
+  src.focus(); src.setSelectionRange(start, end);
+  if (!document.execCommand("insertText", false, text)) src.setRangeText(text, start, end, "end");
+  edited();
+  if (back && back !== src && back.closest("#findbar")) back.focus();
+}
+function replaceOne() {
+  if (cur < 0 || !matches.length) return search(true);
+  const [s, e] = matches[cur];
+  replaceRange(s, e, $("repl").value);
+  src.setSelectionRange(s + $("repl").value.length, s + $("repl").value.length);
+  search(true);
+}
+function replaceAll() {
+  const re = pattern(); if (!re) return;
+  const n = (src.value.match(re) || []).length; if (!n) return;
+  replaceRange(0, src.value.length, src.value.replace(re, () => $("repl").value));
+  search(false); $("fcount").textContent = `replaced ${n}`;
+}
+$("openfind").onclick = () => openFind(false);
+$("fnext").onclick = () => step(1); $("fprev").onclick = () => step(-1);
+$("frep").onclick = replaceOne; $("fall").onclick = replaceAll; $("fclose").onclick = closeFind;
+["fcase", "fword"].forEach(id => $(id).onchange = () => search(false));
+$("find").addEventListener("input", () => search(true));
+$("find").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); step(e.shiftKey ? -1 : 1); } if (e.key === "Escape") closeFind(); });
+$("repl").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); replaceOne(); } if (e.key === "Escape") closeFind(); });
+document.addEventListener("keydown", e => {
+  if ((e.ctrlKey || e.metaKey) && (e.key === "f" || e.key === "h") && document.activeElement !== $("sheetfind")
+      && !document.activeElement.closest("#sheetsec")) {
+    e.preventDefault(); openFind(e.key === "h");
+  }
+});
+src.addEventListener("keydown", e => {
+  if (e.key === "Tab" && !e.ctrlKey && !e.altKey) {   // spaces, never tabs; Shift+Tab still leaves the editor
+    if (e.shiftKey) return;
+    e.preventDefault(); replaceRange(src.selectionStart, src.selectionEnd, "    ");
+  }
+  if (e.key === "Escape" && $("findbar").classList.contains("open")) closeFind();
+});
+
+// ── loading and editing state ─────────────────────────────────────────────────────────────────────────────────────
+function invalidate() {
+  imageId = null; $("download").disabled = $("flash").disabled = true; $("dl").removeAttribute("href");
+  $("sweep").textContent = "-"; $("info").textContent = "-";
+}
+function edited() {
+  invalidate();
+  if (marks.size) { marks = new Map(); $("verdict").className = "verdict"; }
+  if (matches.length) search(false); else schedule();
+}
+src.addEventListener("input", edited);
+function loaded(n, text, how) {
+  name = n.replace(/\.[^.]+$/, ""); src.value = text; src.scrollTop = 0; $("loaded").textContent = how;
+  marks = new Map(); invalidate(); $("verdict").className = "verdict";
+  showOutput("Not checked yet."); search(false); render(); src.setSelectionRange(0, 0); updatePos(); showApproval();
+}
+function showTab(which) {
+  $("tabA").classList.toggle("on", which === "a"); $("tabR").classList.toggle("on", which === "r");
+  $("findtext").textContent = which === "a" ? analysis : report;
+}
+$("tabA").onclick = () => showTab("a"); $("tabR").onclick = () => showTab("r");
+
+$("cbfile").onchange = async () => { const f = await readFile($("cbfile")); $("cbfile").value = "";
+  $("findings").style.display = "none"; $("sheetsec").style.display = "none"; loaded(f.name, f.text, "Opened " + f.name); };
+$("wsfile").onchange = async () => { const f = await readFile($("wsfile")); $("wsfile").value = ""; $("learnbox").style.display = "none";
+  $("tabA").textContent = "What the worksheet shows"; sheetLoad(f.name, f.text); await importSheet(true); };
+api("/api/examples").then(list => list.forEach(n => { const o = document.createElement("option");
+  o.value = n; o.textContent = n; $("examples").appendChild(o); }));
+$("examples").onchange = async () => { const n = $("examples").value; if (!n) return;
+  const e = await api("/api/examples/" + encodeURIComponent(n));
+  $("findings").style.display = "none"; $("sheetsec").style.display = "none";
+  loaded(e.name, e.source, "Example: " + e.name); $("examples").value = ""; };
+
+// ── check, with clickable diagnostics ─────────────────────────────────────────────────────────────────────────────
+function showOutput(text) {
+  const box = $("out"); box.textContent = "";
+  marks = new Map();
+  for (const line of text.split("\n")) {
+    const m = /^casebook:(\d+):\s*(error|warning)?/.exec(line);
+    if (m) {
+      const n = parseInt(m[1], 10), kind = m[2] === "warning" ? "w" : "e";
+      if (kind === "e" || !marks.has(n)) marks.set(n, kind === "e" ? "err" : "warn");
+      const b = document.createElement("button"); b.className = kind;
+      const k = document.createElement("b"); k.textContent = "line " + n;
+      b.append(k, document.createTextNode(line.replace(/^casebook:\d+:\s*/, "")));
+      b.title = line; b.onclick = () => gotoLine(n);
+      box.appendChild(b);
+    } else {
+      const d = document.createElement("div"); d.textContent = line || " "; box.appendChild(d);
+    }
+  }
+  schedule();
+}
+$("check").onclick = async () => {
+  $("check").disabled = true; showOutput("Checking every situation..."); invalidate();
+  try {
+    const c = await api("/api/check", { source: src.value, name, board: $("board").value, extras });
+    showOutput(c.output);
+    const v = $("verdict");
+    if (c.ok) {
+      v.className = "verdict ok"; v.textContent = "Passed. Every situation has exactly one answer, on time.";
+      imageId = c.image; $("download").disabled = $("flash").disabled = false;
+      $("dl").href = "/api/download/" + c.image + "?t=" + TOKEN; $("dl").download = c.file;
+      $("sweep").textContent = c.sweep; $("info").textContent = c.info;
+    } else {
+      const errs = [...marks.values()].filter(k => k === "err").length;
+      v.className = "verdict no";
+      v.textContent = "Refused. No image was made." + (errs ? ` ${errs} line${errs === 1 ? "" : "s"} marked red; click an error to jump to it.` : " The reasons are below.");
+      const first = [...marks.entries()].find(([, k]) => k === "err");
+      if (first) gotoLine(first[0]);
+    }
+  } catch (e) { showOutput(e.message); }
+  $("check").disabled = false;
+};
+const BOARD_HINT = { pico2: "To write directly: hold BOOTSEL on the Pico while plugging it in, then press Write.",
+  unor4: "To write directly: plug the Uno R4 in by USB and press Write. Uses the dfu-util from your Arduino install." };
+function boardHint() { $("flashmsg").textContent = BOARD_HINT[$("board").value]; }
+$("board").onchange = () => { invalidate(); boardHint(); }; boardHint();
+$("flash").onclick = async () => {
+  $("flash").disabled = true; $("flashmsg").textContent = "Writing...";
+  try { const r = await api("/api/flash/" + imageId, {}); $("flashmsg").textContent = "Written to " + r.drive +
+        ". The board restarts by itself and runs the rulebook."; }
+  catch (e) { $("flashmsg").textContent = e.message; }
+  $("flash").disabled = false;
+};
+$("save").onclick = () => download(src.value, name + ".cb", "text/plain");
+
+// ── several casebooks on one chip (a palette) ─────────────────────────────────────────────────────────────────────
+let extras = [];
+function renderExtras() {
+  const box = $("extras"); box.textContent = "";
+  if (!extras.length) { box.textContent = "nothing else"; return; }
+  extras.forEach((x, i) => {
+    const b = document.createElement("button"); b.className = "ghost small"; b.textContent = x.name + " ✕";
+    b.title = "Remove " + x.name + " from this chip";
+    b.onclick = () => { extras.splice(i, 1); renderExtras(); invalidate(); };
+    box.appendChild(b);
+  });
+}
+function addExtra(n, text) {
+  if (extras.length >= 3) { $("extras").textContent = "At most 4 casebooks fit on one chip."; return; }
+  extras.push({ name: n, source: text }); renderExtras(); invalidate();
+}
+$("extrafile").onchange = async () => { const f = await readFile($("extrafile")); $("extrafile").value = ""; addExtra(f.name, f.text); };
+api("/api/examples").then(list => list.forEach(n => { const o = document.createElement("option");
+  o.value = n; o.textContent = n; $("extraex").appendChild(o); }));
+$("extraex").onchange = async () => { const n = $("extraex").value; if (!n) return;
+  const e = await api("/api/examples/" + encodeURIComponent(n)); addExtra(e.name, e.source); $("extraex").value = ""; };
+
+// ── worksheet editor ──────────────────────────────────────────────────────────────────────────────────────────────
+// RFC 4180 CSV: quoted fields, doubled quotes, embedded commas and newlines. The delimiter is kept as found (some
+// European exports use ';'), and rows of different widths are kept as they are -- banner rows above the header are
+// real content of the document, and the importer knows how to skip them.
+let sheet = { name: "", delim: ",", rows: [], original: [] };
+function parseCSV(text, delim) {
+  const rows = []; let row = [], f = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) {
+      if (ch === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += ch;
+    } else if (ch === '"') q = true;
+    else if (ch === delim) { row.push(f); f = ""; }
+    else if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && text[i + 1] === "\n") i++;
+      row.push(f); rows.push(row); row = []; f = "";
+    } else f += ch;
+  }
+  if (f !== "" || row.length) { row.push(f); rows.push(row); }
+  return rows;
+}
+function toCSV(rows, delim) {
+  return rows.map(r => r.map(c => /["\r\n]/.test(c) || c.includes(delim) ? '"' + c.replace(/"/g, '""') + '"' : c).join(delim)).join("\r\n") + "\r\n";
+}
+function sheetLoad(file, text) {
+  const head = text.split(/\r?\n/).slice(0, 20).join("\n");
+  const delim = (head.match(/;/g) || []).length > (head.match(/,/g) || []).length ? ";" : ",";
+  const rows = parseCSV(text.replace(/^\uFEFF/, ""), delim);
+  sheet = { name: file, delim, rows, original: rows.map(r => r.join("\u0000")) };
+  undoStack = []; redoStack = []; updateUndo();
+  $("sheetname").textContent = file + (delim === ";" ? "  (semicolon-separated)" : "");
+  renderSheet(); $("sheetsec").style.display = "block";
+}
+function renderSheet() {
+  const t = $("sheet"); t.textContent = "";
+  const width = Math.max(1, ...sheet.rows.map(r => r.length));
+  const thead = document.createElement("tr");
+  const th0 = document.createElement("th"); th0.textContent = "#"; thead.appendChild(th0);
+  for (let c = 0; c < width; c++) {
+    const th = document.createElement("th"); th.textContent = colName(c);
+    const x = document.createElement("button"); x.textContent = "✕"; x.title = "Delete column " + colName(c);
+    x.onclick = () => { snapshot(); sheet.rows.forEach(r => r.splice(c, 1)); renderSheet(); };
+    th.appendChild(x); thead.appendChild(th);
+  }
+  const th1 = document.createElement("th"); thead.appendChild(th1);
+  t.appendChild(thead);
+  sheet.rows.forEach((r, i) => {
+    const tr = document.createElement("tr");
+    const n = document.createElement("td"); n.className = "n"; n.textContent = i + 1; tr.appendChild(n);
+    for (let c = 0; c < width; c++) {
+      const td = document.createElement("td");
+      td.contentEditable = "plaintext-only"; td.textContent = r[c] ?? "";
+      td.addEventListener("focus", () => { td.dataset.before = td.textContent; });
+      td.addEventListener("input", () => { while (r.length <= c) r.push(""); r[c] = td.textContent; markRow(tr, i); });
+      td.addEventListener("blur", () => {   // one undo step per cell edit, not per keystroke
+        if (td.dataset.before !== undefined && td.dataset.before !== td.textContent) {
+          const now = r[c]; r[c] = td.dataset.before; snapshot(); r[c] = now; updateUndo();
+        }
+        delete td.dataset.before;
+      });
+      tr.appendChild(td);
+    }
+    const del = document.createElement("td"); del.className = "n";
+    const b = document.createElement("button"); b.className = "ghost small"; b.textContent = "✕"; b.title = "Delete row " + (i + 1);
+    b.onclick = () => { snapshot(); sheet.rows.splice(i, 1); sheet.original.splice(i, 1); renderSheet(); };
+    del.appendChild(b); tr.appendChild(del);
+    t.appendChild(tr); markRow(tr, i);
+  });
+  filterSheet();
+}
+function markRow(tr, i) { tr.classList.toggle("edited", sheet.rows[i].join("\u0000") !== sheet.original[i]); }
+function filterSheet() {
+  const q = $("sheetfind").value.toLowerCase(), only = $("sheetonly").checked;
+  let hits = 0;
+  [...$("sheet").querySelectorAll("tr")].slice(1).forEach((tr, i) => {
+    const hit = q !== "" && sheet.rows[i].some(c => c.toLowerCase().includes(q));
+    hits += hit ? 1 : 0;
+    tr.classList.toggle("hit", hit); tr.classList.toggle("miss", only && q !== "" && !hit);
+  });
+  $("sheetcount").textContent = q ? `${hits} matching row${hits === 1 ? "" : "s"}` : `${sheet.rows.length} rows`;
+}
+function colName(c) { let n = "", k = c + 1; while (k > 0) { const m = (k - 1) % 26; n = String.fromCharCode(65 + m) + n; k = Math.floor((k - 1) / 26); } return n; }
+
+// Undo/redo for the worksheet: whole-table snapshots, which are small for a worksheet and impossible to get subtly
+// wrong. `original` travels with the rows so the edited-row markers stay right after an undo.
+let undoStack = [], redoStack = [];
+const snap = () => JSON.stringify({ rows: sheet.rows, original: sheet.original });
+function snapshot() { undoStack.push(snap()); if (undoStack.length > 200) undoStack.shift(); redoStack = []; updateUndo(); }
+function restore(from, to) {
+  if (!from.length) return;
+  to.push(snap()); const st = JSON.parse(from.pop());
+  sheet.rows = st.rows; sheet.original = st.original; renderSheet(); updateUndo();
+}
+function updateUndo() { $("sundo").disabled = !undoStack.length; $("sredo").disabled = !redoStack.length; }
+$("sundo").onclick = () => restore(undoStack, redoStack);
+$("sredo").onclick = () => restore(redoStack, undoStack);
+$("addcol").onclick = () => { snapshot(); const w = Math.max(1, ...sheet.rows.map(r => r.length));
+  sheet.rows.forEach(r => { while (r.length < w) r.push(""); r.push(""); }); renderSheet(); };
+$("sheetsec").addEventListener("keydown", e => {
+  if (!(e.ctrlKey || e.metaKey)) return;
+  const k = e.key.toLowerCase();
+  if (k === "z" || k === "y") {
+    if (document.activeElement && document.activeElement.isContentEditable) document.activeElement.blur();   // commit the cell first
+    e.preventDefault(); (k === "y" || e.shiftKey) ? restore(redoStack, undoStack) : restore(undoStack, redoStack);
+  }
+});
+$("sheetfind").addEventListener("input", filterSheet); $("sheetonly").onchange = filterSheet;
+$("addrow").onclick = () => { snapshot(); sheet.rows.push(new Array(Math.max(1, ...sheet.rows.map(r => r.length))).fill("")); sheet.original.push(null); renderSheet();
+  const last = $("sheet").lastElementChild; last.scrollIntoView({ block: "nearest" }); last.children[1].focus(); };
+$("savecsv").onclick = () => download(toCSV(sheet.rows, sheet.delim), sheet.name.replace(/\.[^.]+$/, "") + "-edited.csv", "text/csv");
+$("gosheet").onclick = () => $("sheetsec").scrollIntoView({ behavior: "smooth" });
+async function importSheet(first) {
+  if (!first && src.value !== draftPristine &&
+      !confirm("Re-importing replaces the rulebook with a new draft, and your edits to the rulebook will be lost. Save the rulebook first if you need them. Continue?")) return;
+  try {
+    const d = await api("/api/import", { kind: $("kind").value, name: sheet.name, content: toCSV(sheet.rows, sheet.delim) });
+    analysis = d.analysis || "(no findings)"; report = d.report || "(no report)";
+    $("findings").style.display = "block"; $("wsonly").style.display = "block"; showTab("a");
+    loaded(sheet.name, d.source, (first ? "Drafted from " : "Redrafted from your edited ") + sheet.name + ". Read the findings, then work through the to-do list.");
+    draftPristine = src.value;
+    sheet.original = sheet.rows.map(r => r.join("\u0000")); renderSheet();
+  } catch (e) { $("loaded").textContent = e.message; }
+}
+$("reimport").onclick = () => importSheet(false);
+
+// ── learning from records ─────────────────────────────────────────────────────────────────────────────────────────
+// The records are parsed here only to offer the column choices; the learning itself is learn2cb's.
+let records = { name: "", text: "", header: [], rows: [] };
+$("recfile").onchange = async () => {
+  const f = await readFile($("recfile")); $("recfile").value = "";
+  const rows = parseCSV(f.text.replace(/^\uFEFF/, ""), ",").filter(r => r.length > 1 || (r[0] || "").trim());
+  if (rows.length < 11) { $("loaded").textContent = f.name + ": need a header row and at least 10 records."; return; }
+  records = { name: f.name, text: f.text, header: rows[0].map(h => h.trim()), rows: rows.slice(1) };
+  $("recinfo").textContent = `${f.name}: ${records.rows.length} records, ${records.header.length} columns.`;
+  const oc = $("outcol"); oc.textContent = "";
+  records.header.forEach((h, i) => { const o = document.createElement("option"); o.value = h; o.textContent = h; oc.appendChild(o); });
+  // A guess the user can change: a two-valued column whose name sounds like an outcome, else the last two-valued one.
+  const binary = records.header.filter((h, i) => new Set(records.rows.map(r => (r[i] || "").trim())).size === 2);
+  const named = binary.find(h => /fail|fault|outcome|label|class|target|result|trip|alarm/i.test(h));
+  if (named || binary.length) oc.value = named || binary[binary.length - 1];
+  fillPositive(); fillIgnore();
+  $("learnbox").style.display = "block"; $("findings").style.display = "none"; $("sheetsec").style.display = "none";
+};
+function fillPositive() {
+  const i = records.header.indexOf($("outcol").value), counts = new Map();
+  records.rows.forEach(r => { const v = (r[i] || "").trim(); counts.set(v, (counts.get(v) || 0) + 1); });
+  const pv = $("posval"); pv.textContent = "";
+  [...counts.entries()].sort((a, b) => a[1] - b[1]).slice(0, 30).forEach(([v, n]) => {
+    const o = document.createElement("option"); o.value = v; o.textContent = `${v === "" ? "(blank)" : v}  (${n} records)`; pv.appendChild(o); });
+  if (counts.size > 30) $("recinfo").textContent += ` That column has ${counts.size} values; an outcome usually has two.`;
+}
+function fillIgnore() {
+  const box = $("ignorelist"); box.textContent = "";
+  records.header.forEach(h => {
+    if (h === $("outcol").value) return;
+    const l = document.createElement("label"), c = document.createElement("input");
+    c.type = "checkbox"; c.value = h; l.append(c, document.createTextNode(" " + h)); box.appendChild(l);
+  });
+}
+$("outcol").onchange = () => { fillPositive(); fillIgnore(); };
+$("learn").onclick = async () => {
+  $("learn").disabled = true; $("loaded").textContent = "Learning...";
+  const ignore = [...$("ignorelist").querySelectorAll("input:checked")].map(c => c.value).join(",");
+  try {
+    const l = await api("/api/learn", { name: records.name, content: records.text, outcome: $("outcol").value,
+      positive: $("posval").value, ignore, k: parseInt($("kval").value, 10) || 0, asserts: $("assword").value });
+    analysis = l.report; report = "A learned draft has no review report. The learning report is on the first tab.";
+    $("tabA").textContent = "What the records show"; $("findings").style.display = "block"; $("wsonly").style.display = "none"; showTab("a");
+    loaded(records.name, l.source, `Learned a draft from ${records.name}. Read the learning report, especially any WARNING, before checking.`);
+    if (/WARNING/.test(l.report)) $("loaded").textContent += " There is a warning: some columns may be recorded after the event.";
+  } catch (e) { $("loaded").textContent = e.message; }
+  $("learn").disabled = false;
+};
+
+// ── drafting from a manual ────────────────────────────────────────────────────────────────────────────────────────
+// The drafting itself is the draft package's, run by the studio; the page only starts it, shows progress and the result.
+let manualDoc = { name: "", text: "" }, draftId = "", draftTimer = 0;
+const MODEL_DEFAULTS = { local: ["http://localhost:11434", "qwen2.5:14b"],
+                         hosted: ["https://openrouter.ai/api/v1", "anthropic/claude-sonnet-5.5"] };
+$("manfile").onchange = async () => {
+  const f = await readFile($("manfile")); $("manfile").value = "";
+  manualDoc = { name: f.name, text: f.text };
+  const words = f.text.split(/\s+/).filter(Boolean).length;
+  $("maninfo").textContent = `${f.name}: ${words} words.`;
+  $("draftbox").style.display = "block"; $("learnbox").style.display = "none"; $("findings").style.display = "none";
+  $("sheetsec").style.display = "none";
+};
+$("mserver").onchange = () => {
+  const k = $("mserver").value; [$("mendpoint").value, $("mmodel").value] = MODEL_DEFAULTS[k];
+  $("hostedonly").style.display = k === "hosted" ? "block" : "none";
+};
+function draftBusy(on) {
+  $("draft").disabled = on; $("draftcancel").style.display = on ? "inline-block" : "none";
+  $("draftlog").style.display = "block";
+}
+$("draft").onclick = async () => {
+  const hosted = $("mserver").value === "hosted";
+  if (hosted && !$("mremote").checked) { $("loaded").textContent = "Tick the box to allow sending the manual to the hosted service."; return; }
+  $("draftlog").textContent = ""; draftBusy(true); $("loaded").textContent = "Drafting... this takes minutes.";
+  try {
+    const j = await api("/api/draft", { name: manualDoc.name, content: manualDoc.text, api: hosted ? "openai" : "ollama",
+      endpoint: $("mendpoint").value.trim(), model: $("mmodel").value.trim(), key: hosted ? $("mkey").value : "",
+      allowRemote: hosted && $("mremote").checked, rounds: 2, bySentence: true });
+    draftId = j.id; pollDraft();
+  } catch (e) { $("loaded").textContent = e.message; draftBusy(false); }
+};
+$("draftcancel").onclick = async () => { if (draftId) { try { await api(`/api/draft/${draftId}/cancel`, {}); } catch (e) {} } };
+async function pollDraft() {
+  clearTimeout(draftTimer);
+  let j;
+  try { j = await api(`/api/draft/${draftId}`); } catch (e) { $("loaded").textContent = e.message; draftBusy(false); return; }
+  const log = $("draftlog"); log.textContent = j.log.join("\n"); log.scrollTop = log.scrollHeight;
+  if (!j.done) { draftTimer = setTimeout(pollDraft, 1000); return; }
+  draftBusy(false);
+  if (j.source) {
+    analysis = j.review; report = "Every rule in the draft is written beside the manual sentence it came from. " +
+      "Check each one against the manual; the review on the first tab lists what to look at first.";
+    $("tabA").textContent = "Draft review"; $("findings").style.display = "block"; $("wsonly").style.display = "none"; showTab("a");
+    loaded(j.name + ".cb", j.source, j.error ? `Draft stopped (${j.error}); what was drafted so far is loaded. Read the review.`
+      : `Drafted ${j.name} from ${manualDoc.name}. Read the draft review, then check and approve.`);
+  } else { $("loaded").textContent = "Drafting failed: " + (j.error || "no draft"); }
+  showApproval();
+}
+function showApproval() { $("approvebox").style.display = src.value.includes("UNAPPROVED DRAFT") ? "block" : "none"; }
+src.addEventListener("input", showApproval);
+$("approve").onclick = async () => {
+  const who = $("approver").value.trim();
+  if (!who) { $("loaded").textContent = "Enter your name to approve the draft."; return; }
+  if (!confirm("Approve this draft? Only do this after checking every rule against the manual. " +
+               "The rulebook still has to pass the full check before a chip image is built.")) return;
+  try {
+    const j = await api("/api/approve", { source: src.value, who });
+    loaded(name + ".cb", j.source, `Approved by ${who}. Now check it: approval does not skip any check.`);
+  } catch (e) { $("loaded").textContent = e.message; }
+  showApproval();
+};
+
+render();
+</script>
+</body>
+</html>

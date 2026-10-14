@@ -1,0 +1,254 @@
+--- run started 2026-10-01T12:30:57.7634157-05:00 ---
+--- poking COM4 at 1200 baud to request BOOTSEL ---
+--- poke threw: Exception calling "Open" with "0" argument(s): "A device attached to the system is not functioning.
+" (may still have worked) ---
+--- BOOTSEL drive D: found; copying uf2 ---
+--- opened COM4 at 2026-10-01T12:30:59.8843410-05:00 ---
+
+=== quorum: a LEARNED casebook on RP2350 (report 0) ===
+casebook        monks-1-knows-2 v1
+source          UCI MONK's problems, monks-1.train
+written by      quorum learn (AA-CBR, v4 hybrid)
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     25589 cycles = 170.593 us at 150000000 Hz (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on RP2350 (report 1) ===
+casebook        monks-1-knows-2 v1
+source          UCI MONK's problems, monks-1.train
+written by      quorum learn (AA-CBR, v4 hybrid)
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     25589 cycles = 170.593 us at 150000000 Hz (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on RP2350 (report 2) ===
+casebook        monks-1-knows-2 v1
+source          UCI MONK's problems, monks-1.train
+written by      quorum learn (AA-CBR, v4 hybrid)
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     25589 cycles = 170.593 us at 150000000 Hz (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on RP2350 (report 3) ===
+casebook        monks-1-knows-2 v1
+source          UCI MONK's problems, monks-1.train
+written by      quorum learn (AA-CBR, v4 hybrid)
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     25589 cycles = 170.593 us at 150000000 Hz (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on RP2350 (report 4) ===
+casebook        monks-1-knows-2 v1
+source          UCI MONK's problems, monks-1.train
+written by      quorum learn (AA-CBR, v4 hybrid)
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     25589 cycles = 170.593 us at 150000000 Hz (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on RP2350 (report 5) ===
+casebook        monks-1-knows-2 v1
+source          UCI MONK's problems, monks-1.train
+written by      quorum learn (AA-CBR, v4 hybrid)
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     25589 cycles = 170.593 us at 150000000 Hz (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on RP2350 (report 6) ===
+casebook        monks-1-knows-2 v1
+source          UCI MONK's problems, monks-1.train
+written by      quorum learn (AA-CBR, v4 hybrid)
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     25589 cycles = 170.593 us at 150000000 Hz (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on RP2350 (report 7) ===
+casebook        monks-1-knows-2 v1
+source          UCI MONK's problems, monks-1.train
+written by      quorum learn (AA-CBR, v4 hybrid)
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     25589 cycles = 170.593 us at 150000000 Hz (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on RP2350 (report 8) ===
+casebook        monks-1-knows-2 v1
+source          UCI MONK's problems, monks-1.train
+written by      quorum learn (AA-CBR, v4 hybrid)
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     25589 cycles = 170.593 us at 150000000 Hz (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on RP2350 (report 9) ===
+casebook        monks-1-knows-2 v1
+source          UCI MONK's problems, monks-1.train
+written by      quorum learn (AA-CBR, v4 hybrid)
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     25589 cycles = 170.593 us at 150000000 Hz (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on RP2350 (report 10) ===
+casebook        monks-1-knows-2 v1
+source          UCI MONK's problems, monks-1.train
+written by      quorum learn (AA-CBR, v4 hybrid)
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     25589 cycles = 170.593 us at 150000000 Hz (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on RP2350 (report 11) ===
+casebook        monks-1-knows-2 v1
+source          UCI MONK's problems, monks-1.train
+written by      quorum learn (AA-CBR, v4 hybrid)
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     25589 cycles = 170.593 us at 150000000 Hz (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on RP2350 (report 12) ===
+casebook        monks-1-knows-2 v1
+source          UCI MONK's problems, monks-1.train
+written by      quorum learn (AA-CBR, v4 hybrid)
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     25589 cycles = 170.593 us at 150000000 Hz (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on RP2350 (report 13) ===
+casebook        monks-1-knows-2 v1
+source          UCI MONK's problems, monks-1.train
+written by      quorum learn (AA-CBR, v4 hybrid)
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     25589 cycles = 170.593 us at 150000000 Hz (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on RP2350 (report 14) ===
+casebook        monks-1-knows-2 v1
+source          UCI MONK's problems, monks-1.train
+written by      quorum learn (AA-CBR, v4 hybrid)
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     25589 cycles = 170.593 us at 150000000 Hz (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on RP2350 (report 15) ===
+casebook        monks-1-knows-2 v1
+source          UCI MONK's problems, monks-1.train
+written by      quorum learn (AA-CBR, v4 hybrid)
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     25589 cycles = 170.593 us at 150000000 Hz (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on RP2350 (report 16) ===
+casebook        monks-1-knows-2 v1
+source          UCI MONK's problems, monks-1.train
+written by      quorum learn (AA-CBR, v4 hybrid)
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     25589 cycles = 170.593 us at 150000000 Hz (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on RP2350 (report 17) ===
+casebook        monks-1-knows-2 v1
+source          UCI MONK's problems, monks-1.train
+written by      quorum learn (AA-CBR, v4 hybrid)
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     25589 cycles = 170.593 us at 150000000 Hz (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+
+=== quorum: a LEARNED casebook on RP2350 (report 18) ===
+casebook        monks-1-knows-2 v1
+source          UCI MONK's problems, monks-1.train
+written by      quorum learn (AA-CBR, v4 hybrid)
+arguments       45, attacks 98, observations 10
+fingerprint     OK
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     0   construction faults 0
+steps           max 167, proven bound 306, WITHIN
+worst cycle     25589 cycles = 170.593 us at 150000000 Hz (state 0x0, cold, instantiate+decide)
+DEVICE monks-1-knows-2 states 1024 asserts 795 fnv1a 0x98512208
+--- run finished 2026-10-01T12:31:57.7756548-05:00 ---

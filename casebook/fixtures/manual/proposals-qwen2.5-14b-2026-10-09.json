@@ -1,0 +1,250 @@
+{
+ "note": "Real answers from a local model to quorum-studio draft's prompt on sump_pump_manual.txt, 2026-10-09: the first answer, then one answer per repair round. Replayed by the draft tests.",
+ "rounds": [
+  [
+   {
+    "kind": "observe",
+    "name": "high_water_on",
+    "description": "high-water float switch closed",
+    "quote": "The high-water float switch closes when the water in the pit is above the high-water mark."
+   },
+   {
+    "kind": "observe",
+    "name": "current_on",
+    "description": "motor current relay closed",
+    "quote": "The motor current relay closes when the motor is drawing running current."
+   },
+   {
+    "kind": "observe",
+    "name": "flow_on",
+    "description": "discharge flow switch closed",
+    "quote": "The discharge flow switch closes when water is moving in the discharge pipe."
+   },
+   {
+    "kind": "observe",
+    "name": "thermal_off",
+    "description": "thermal switch open",
+    "quote": "The thermal switch in the motor winding opens when the winding is overheated."
+   },
+   {
+    "kind": "claim",
+    "name": "failed_start",
+    "severity": 5,
+    "needs": [
+     "high_water_on"
+    ],
+    "quote": "If the high-water float switch is closed and the motor current relay is not closed, the pump has failed to start and the pit may overflow."
+   },
+   {
+    "kind": "attack",
+    "from": "flow_on",
+    "attack": "rebuts",
+    "to": [
+     "dry_run"
+    ],
+    "quote": "During the weekly test the operator runs the pump with the pit empty for up to one minute. While the weekly test is in progress, running with no discharge flow is expected and is not a fault."
+   },
+   {
+    "kind": "claim",
+    "name": "dry_run",
+    "severity": 6,
+    "needs": [
+     "current_on"
+    ],
+    "undermines": [
+     "failed_start"
+    ],
+    "quote": "If the motor current relay is closed and the discharge flow switch is not closed, the pump is running dry or the discharge is blocked."
+   },
+   {
+    "kind": "attack",
+    "from": "flow_on",
+    "attack": "undercuts",
+    "to": [
+     "overheating"
+    ],
+    "quote": "Water cannot move in the discharge pipe unless the motor is drawing current. If the discharge flow switch is closed while the motor current relay is open, one of the two instruments is faulty and both must be inspected."
+   },
+   {
+    "kind": "claim",
+    "name": "instruments_faulty",
+    "severity": 4,
+    "needs": [
+     "flow_on"
+    ],
+    "undermines": [
+     "current_on"
+    ],
+    "quote": "Water cannot move in the discharge pipe unless the motor is drawing current. If the discharge flow switch is closed while the motor current relay is open, one of the two instruments is faulty and both must be inspected."
+   },
+   {
+    "kind": "claim",
+    "name": "overheating",
+    "severity": 7,
+    "needs": [
+     "thermal_off"
+    ],
+    "quote": "If the thermal switch has opened, the motor is overheated and the pump must be stopped."
+   },
+   {
+    "kind": "action",
+    "name": "report_failure",
+    "role": "urgent",
+    "when": [
+     "failed_start"
+    ],
+    "quote": "A pump that has failed to start must be reported to maintenance immediately."
+   },
+   {
+    "kind": "action",
+    "name": "stop_pump",
+    "role": "safe",
+    "when": [
+     "dry_run",
+     "overheating"
+    ],
+    "quote": "Running dry destroys the shaft seal within minutes, so the pump must be stopped."
+   },
+   {
+    "kind": "action",
+    "name": "keep_running",
+    "role": "idle",
+    "quote": "When the high-water float switch is closed, the pump should be running. When the float switch is open and no other signal is present, the pump is idle and no action is needed."
+   },
+   {
+    "kind": "prefer",
+    "order": [
+     "stop_pump",
+     "report_failure",
+     "keep_running"
+    ],
+    "quote": "Stopping the pump takes priority over reporting to maintenance, and reporting to maintenance takes priority over normal running."
+   }
+  ],
+  [
+   {
+    "kind": "claim",
+    "name": "failed_start",
+    "needs": [
+     "high_water_on"
+    ],
+    "description": "pump has failed to start",
+    "severity": 5,
+    "quote": "If the high-water float switch is closed and the motor current relay is not closed, the pump has failed to start and the pit may overflow."
+   },
+   {
+    "kind": "claim",
+    "name": "dry_run",
+    "needs": [
+     "current_on"
+    ],
+    "undermines": [
+     "failed_start"
+    ],
+    "description": "pump running dry or discharge blocked",
+    "severity": 6,
+    "quote": "If the motor current relay is closed and the discharge flow switch is not closed, the pump is running dry or the discharge is blocked."
+   },
+   {
+    "kind": "claim",
+    "name": "instruments_faulty",
+    "needs": [
+     "flow_on"
+    ],
+    "undermines": [
+     "current_on"
+    ],
+    "description": "one of two instruments faulty",
+    "severity": 4,
+    "quote": "Water cannot move in the discharge pipe unless the motor is drawing current. If the discharge flow switch is closed while the motor current relay is open, one of the two instruments is faulty and both must be inspected."
+   },
+   {
+    "kind": "claim",
+    "name": "overheating",
+    "needs": [
+     "thermal_off"
+    ],
+    "description": "motor overheated",
+    "severity": 7,
+    "quote": "If the thermal switch has opened, the motor is overheated and the pump must be stopped."
+   },
+   {
+    "kind": "action",
+    "name": "report_failure",
+    "when": [
+     "failed_start"
+    ],
+    "role": "urgent",
+    "quote": "A pump that has failed to start must be reported to maintenance immediately."
+   },
+   {
+    "kind": "attack",
+    "from": "flow_on",
+    "attack": "rebuts",
+    "to": [
+     "dry_run"
+    ],
+    "description": "weekly test exception",
+    "quote": "During the weekly test the operator runs the pump with the pit empty for up to one minute. While the weekly test is in progress, running with no discharge flow is expected and is not a fault."
+   },
+   {
+    "kind": "attack",
+    "from": "flow_on",
+    "attack": "undercuts",
+    "to": [
+     "overheating"
+    ],
+    "description": "instrument check exception",
+    "quote": "Water cannot move in the discharge pipe unless the motor is drawing current. If the discharge flow switch is closed while the motor current relay is open, one of the two instruments is faulty and both must be inspected."
+   },
+   {
+    "kind": "action",
+    "name": "stop_pump",
+    "when": [
+     "dry_run",
+     "overheating"
+    ],
+    "role": "safe",
+    "quote": "Running dry destroys the shaft seal within minutes, so the pump must be stopped."
+   },
+   {
+    "kind": "prefer",
+    "order": [
+     "stop_pump",
+     "report_failure",
+     "keep_running"
+    ],
+    "description": "priority order",
+    "quote": "Stopping the pump takes priority over reporting to maintenance, and reporting to maintenance takes priority over normal running."
+   }
+  ],
+  [
+   {
+    "kind": "attack",
+    "from": "flow_on",
+    "attack": "rebuts",
+    "to": [
+     "failed_start"
+    ],
+    "quote": "During the weekly test the operator runs the pump with the pit empty for up to one minute. While the weekly test is in progress, running with no discharge flow is expected and is not a fault."
+   },
+   {
+    "kind": "action",
+    "name": "stop_pump",
+    "when": [
+     "overheating"
+    ],
+    "role": "safe",
+    "quote": "Running dry destroys the shaft seal within minutes, so the pump must be stopped."
+   },
+   {
+    "kind": "prefer",
+    "order": [
+     "stop_pump",
+     "keep_running"
+    ],
+    "quote": "Stopping the pump takes priority over reporting to maintenance, and reporting to maintenance takes priority over normal running."
+   }
+  ]
+ ]
+}

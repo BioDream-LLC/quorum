@@ -1,0 +1,33 @@
+casebook held-demo v1
+source "quorum fixture: time in rules" dated 2026-10-09 by "quorum project"
+note "A bearing that runs hot for a moment after a load change is normal; one that STAYS hot is not. The"
+note "temperature threshold therefore asserts only after holding for 5 s. Vibration has no hold: a spike above"
+note "the extreme limit is itself the emergency. The rulebook is still checked over every state, because time"
+note "decides only when a reading becomes true, never what a true reading means."
+
+observe bearing_hot      "bearing temperature high, sustained"
+observe vib_extreme      "vibration above the extreme limit"
+observe greasing         "lubrication cycle in progress"
+
+channel bearing_temp "bearing temperature" unit degC
+  range -20 200
+  stale_after 10s
+  asserts bearing_hot above 90.0 release 85.0 for 5s
+
+channel vibration "bearing housing vibration" unit mm/s
+  range 0 50
+  stale_after 5s
+  asserts vib_extreme above 11.0 release 10.5
+
+claim overheating "bearing overheating" severity 7 needs bearing_hot
+claim seizing     "bearing seizing"     severity 9 needs bearing_hot vib_extreme
+excuse grease_heat "grease churning warms the bearing briefly" needs greasing
+grease_heat undercuts overheating
+vib_extreme rebuts grease_heat
+
+claim blind "a bearing sensor cannot be believed" when any bearing_temp_unavailable vibration_unavailable
+
+action carry_on idle
+action inspect when any overheating blind
+action trip safe when seizing
+prefer trip over inspect over carry_on

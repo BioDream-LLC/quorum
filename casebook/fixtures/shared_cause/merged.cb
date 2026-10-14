@@ -1,0 +1,13 @@
+casebook merged v1
+source "synthetic probe for the shared-cause question" dated 2026-09-25 by "probe"
+observe over_pressure "over pressure of gas"
+observe over_voltage  "over voltage"
+observe test_running  "a functional test is in progress"
+
+excuse bench_test "a functional test is driving the plant" needs test_running
+claim sv_fail "failure and burning of the solenoid valve" severity 7 needs over_pressure over_voltage
+bench_test undercuts sv_fail
+
+action shutdown safe when any sv_fail
+action run idle
+prefer shutdown over run

@@ -1,0 +1,15 @@
+REVIEW -- what the checks cannot decide. Start here.
+
+draft as a whole:
+  PROBLEM  claim failed_start: no action or attack uses it, so it can never change a decision
+
+rules to check first (a real quote does not mean a real rule):
+  FLAG     attack flow_on rebuts dry_run
+           its quote never mentions dry_run: check that the manual really says this
+           quote: "During the weekly test the operator runs the pump with the pit empty for up to one minute. While the weekly test is in progress, running with no discharge flow is expected and is not a fault."
+
+manual sentences no rule cites (4 of 17). Any rule the draft is missing is in here:
+  - The pump controller reports four signals.
+  - A pump that has failed to start must be reported to maintenance immediately.
+  - Water cannot move in the discharge pipe unless the motor is drawing current.
+  - If the discharge flow switch is closed while the motor current relay is open, one of the two instruments is faulty and both must be inspected.

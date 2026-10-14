@@ -1,0 +1,20 @@
+casebook + learning, v4 -- 200 freshly generated problems, seed 20261001
+  concepts redrawn for a positive rate outside [0.2, 0.8]: 35
+
+MEAN BALANCED ACCURACY, % (50 problems per cell; incomplete casebook unless marked)
+      n noise   casebook    learned  hybrid v3  hybrid v4    full casebook    full hyb v3    full hyb v4
+     50  0.00      79.33      90.15      96.60      96.53           100.00         100.00         100.00
+     50  0.05      77.22      87.07      92.37      92.35           100.00          98.33          99.96
+    200  0.00      77.16      96.89      98.38      98.38           100.00         100.00         100.00
+    200  0.05      76.94      96.85      98.59      98.69           100.00          99.59          99.82
+
+PRE-REGISTERED CRITERIA, v4 (learn/PREREGISTRATION.md)
+  1. v4 beats the incomplete casebook:        157/200 problems, mean gain +18.83 pts   FAIL
+  2. v4 beats learning alone:                 104/200 problems, mean gain +3.75 pts   FAIL
+  3. v4 within 1 pt of the complete casebook: 195/200 problems                     PASS
+  4. invariants: 720020 AA-CBR queries, not total 0, over bound 0; largest 146 args, 210 attacks   PASS
+
+  for comparison, the unrepaired v3 method on the same problems (judges nothing):
+     beats casebook 159/200 (+18.83), beats learned 103/200 (+3.75), within 1 pt of complete casebook 173/200
+
+  VERDICT: learning makes an impactful difference to a casebook: NOT SHOWN

@@ -1,0 +1,21 @@
+REVIEW -- what the checks cannot decide. Start here.
+
+draft as a whole:
+  PROBLEM  observe flow_on: no rule uses this reading
+
+rules to check first (a real quote does not mean a real rule):
+  FLAG     claim failed_start
+           its quote mentions current_on, but the rule neither needs it nor is argued against by it: a condition in the sentence (often a 'not') may be missing
+           quote: "If the high-water float switch is closed and the motor current relay is not closed, the pump has failed to start and the pit may overflow."
+  FLAG     claim dry_run
+           its quote mentions flow_on, but the rule neither needs it nor is argued against by it: a condition in the sentence (often a 'not') may be missing
+           quote: "If the motor current relay is closed and the discharge flow switch is not closed, the pump is running dry or the discharge is blocked."
+  FLAG     excuse test_run
+           its quote mentions flow_on, but the rule neither needs it nor is argued against by it: a condition in the sentence (often a 'not') may be missing
+           quote: "While the weekly test is in progress, running with no discharge flow is expected and is not a fault."
+
+manual sentences no rule cites (3 of 17). A missing rule is usually in here, but not
+always: a sentence cited for one rule can state another that is still missing.
+  - The pump controller reports four signals.
+  - When the high-water float switch is closed, the pump should be running.
+  - If the discharge flow switch is closed while the motor current relay is open, one of the two instruments is faulty and both must be inspected.

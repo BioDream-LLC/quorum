@@ -1,0 +1,63 @@
+casebook + learning -- UCI AI4I 2020, 10000 rows, 339 failures, 10-fold CV, seed 20260929, QUICK (sizes 500 and 9000 only)
+
+BALANCED ACCURACY, %, training size 500 per fold (pooled over 10 test folds)
+  casebook              casebook           learned  casebook+learned  casebook OR 1-NN    casebook OR NB              1-NN                NB
+  (none)                   50.00             56.80             56.80             56.37             62.71             56.37             62.71
+  HDF                      66.96             58.89             73.49             73.01             80.13             59.30             69.36
+  PWF                      64.01             66.37             70.34             69.91             74.61             62.68             68.33
+  HDF+PWF                  80.53             67.88             86.42             86.04             88.26             64.59             71.74
+  OSF                      64.45             64.27             65.89             65.16             64.45             64.13             64.43
+  HDF+OSF                  80.53             64.75             80.53             80.53             80.53             64.01             64.69
+  PWF+OSF                  76.70             66.93             77.39             77.10             76.70             65.60             67.88
+  HDF+PWF+OSF              92.33             67.24             92.33             92.33             92.33             65.32             68.49
+
+BALANCED ACCURACY, %, training size 9000 per fold (pooled over 10 test folds)
+  casebook              casebook           learned  casebook+learned  casebook OR 1-NN    casebook OR NB              1-NN                NB
+  (none)                   50.00             68.67             68.67             68.96             72.97             68.96             72.97
+  HDF                      66.96             73.33             73.33             73.48             80.73             73.33             78.76
+  PWF                      64.01             81.06             81.06             81.50             79.29             81.35             76.80
+  HDF+PWF                  80.53             86.06             86.06             86.03             87.96             85.16             81.92
+  OSF                      64.45             75.25             75.40             74.97             74.50             74.97             74.50
+  HDF+OSF                  80.53             80.53             80.53             80.53             83.37             80.08             81.07
+  PWF+OSF                  76.70             86.76             87.05             86.76             82.15             86.04             78.76
+  HDF+PWF+OSF              92.33             92.18             92.33             92.33             92.33             91.15             84.15
+
+MISSED FAILURES / FALSE ALARMS, training size 500 (of 339 failures, 9661 normals)
+  casebook             casebook          learned casebook+learned
+  (none)             339 /    0       292 /   25       292 /   25
+  HDF                224 /    0       278 /   20       178 /   50
+  PWF                244 /    0       227 /   29       200 /   31
+  HDF+PWF            132 /    0       217 /   23        91 /   31
+  OSF                241 /    0       242 /    8       231 /    8
+  HDF+OSF            132 /    0       239 /    0       132 /    0
+  PWF+OSF            158 /    0       224 /    7       153 /    8
+  HDF+PWF+OSF         52 /    0       222 /    4        52 /    0
+
+MISSED FAILURES / FALSE ALARMS, training size 9000 (of 339 failures, 9661 normals)
+  casebook             casebook          learned casebook+learned
+  (none)             339 /    0       211 /   40       211 /   40
+  HDF                224 /    0       180 /   23       180 /   23
+  PWF                244 /    0       127 /   40       127 /   40
+  HDF+PWF            132 /    0        94 /   15        94 /   15
+  OSF                241 /    0       167 /   22       166 /   23
+  HDF+OSF            132 /    0       132 /    1       132 /    1
+  PWF+OSF            158 /    0        89 /   21        87 /   23
+  HDF+PWF+OSF         52 /    0        53 /    0        52 /    0
+
+k chosen per fold for casebook+learned at size 9000:
+  (none)       6,6,6,6,6,6,6,10,6,6
+  HDF          10,10,8,10,12,10,10,10,10,8
+  PWF          8,8,8,8,8,10,8,12,8,8
+  HDF+PWF      12,12,12,10,10,12,12,12,12,12
+  OSF          8,6,12,10,12,8,6,10,6,6
+  HDF+OSF      2,2,2,2,12,12,2,12,2,2
+  PWF+OSF      12,8,10,12,10,10,8,10,8,8
+  HDF+PWF+OSF  2,2,2,2,2,2,2,2,2,2
+
+PRE-REGISTERED CRITERIA (learn/PREREGISTRATION.md)
+  1. learning improves the incomplete casebook (n=9000): wins 5/6, mean gain +8.37 pts   FAIL
+  2. the casebook improves learning (n=500):             wins 6/6, mean gain +10.83 pts   PASS
+  3. no harm with the complete casebook (n=9000):        loss +0.00 pts (limit 1.00)       PASS
+  4. invariants: 320000 AA-CBR queries, not total 0, over bound 0; largest 304 args, 832 attacks   PASS
+
+  VERDICT: learning makes an impactful difference to a casebook: NOT SHOWN

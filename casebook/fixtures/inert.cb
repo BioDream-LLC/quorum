@@ -1,0 +1,25 @@
+casebook inert-claim-fixture v1
+source "deliberately defective fixture for pass 6" dated 2026-09-22 by "quorum tests"
+note "A claim that cannot reach any action. cbc must SAY SO."
+note ""
+note "This is the defect pass 6 was added to catch, reduced to its smallest form. `bearing_failing` is supported,"
+note "is attacked, holds in real states -- and attacks nothing, so no state of the world in which it is true can"
+note "ever change what the machine does. It reads in review as though the hazard is handled. It is not."
+note ""
+note "Found for real in tank-409, where `level_safe` had exactly this shape, and its absence meant the casebook"
+note "continued a transfer on 'nothing said stop' rather than on 'something said safe'."
+
+observe vib_high    "casing vibration above the alarm limit"
+observe temp_high   "bearing temperature above the alarm limit"
+observe just_serviced "the bearing was replaced this shift"
+
+# This one is wired up properly.
+claim overheating "the bearing is running hot" needs temp_high
+
+# This one is not. Supported, defeasible, and inert.
+claim bearing_failing "the bearing is failing" needs vib_high
+just_serviced rebuts bearing_failing
+
+action stop    safe when overheating
+action monitor idle
+prefer stop over monitor

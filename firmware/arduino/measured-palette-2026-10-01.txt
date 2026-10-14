@@ -1,0 +1,30 @@
+# Palette (pump + tank on one device) on an Arduino Uno R4 Minima, 2026-10-01. Raw serial capture.
+# Image: quorum-studio image pump.cb -board unor4 -with tank.cb. Host (qblob sweep):
+#   DEVICE centrifugal-pump states 16384 asserts 1024 fnv1a 0xe5408b85
+#   DEVICE tank-409 states 32768 asserts 7680 fnv1a 0x90bc4385
+# Each member is swept with the other quiet; the lines equal each casebook alone (non-interference).
+
+--- run started 2026-10-01T21:29:55.2567129-05:00 ---
+dfu: Download done.
+dfu: DFU state(7) = dfuMANIFEST, status(0) = No error condition is present
+dfu: DFU state(2) = dfuIDLE, status(0) = No error condition is present
+dfu: Done!
+
+=== quorum runtime on Arduino (report 0) ===
+core clock      48000000
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+palette         2 casebooks, 89 arguments, 124 attacks, 29 observations
+image           OK, fingerprint 0x3379c490
+-- member       centrifugal-pump (others quiet)
+not Decided     86   construction faults 0
+steps           max 273, proven bound 484, WITHIN
+worst cycle     31270 cycles = 651.458 us (state 0x0, cold, instantiate+decide)
+DEVICE centrifugal-pump states 16384 asserts 1024 fnv1a 0xe5408b85
+-- member       tank-409 (others quiet)
+not Decided     0   construction faults 0
+steps           max 273, proven bound 484, WITHIN
+worst cycle     31288 cycles = 651.833 us (state 0x0, cold, instantiate+decide)
+DEVICE tank-409 states 32768 asserts 7680 fnv1a 0x90bc4385
+
+=== quorum runtime on Arduino (report 1) ===

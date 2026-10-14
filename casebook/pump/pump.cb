@@ -1,0 +1,71 @@
+casebook centrifugal-pump v3
+source "FMEA-PUMP-001 rev C" dated 2026-03-14 by "J. Okafor"
+note "Vibration alone classifies at roughly 89%; vibration with motor stator current at roughly 97%."
+note "Dominant nuisance-alarm cause is benign duty-point change, not sensor noise."
+note "FROZEN FIXTURE -- NOT THE MODEL TO COPY. This file is the fixed point of the equivalence proof against pump_casebook.hpp, hand-written before the compiler existed; editing it would force editing the hand-written twin and turn 'the compiler reproduces independent work' into 'the compiler reproduces what I just changed to match'. It is also the baseline of two controlled experiments. Its known defect: every claim needs two symptoms, so it responds to NO single symptom -- a hot bearing alone yields 'continue' where an alarm system would shut down. Authors should read pump_conditions.cb, which is this file plus the three condition claims that fix it."
+
+# ─── what the instruments report ────────────────────────────────────────────
+observe vib_high          "broadband vibration above alarm threshold"
+observe vib_1x            "1x running speed dominant"
+observe vib_bpf           "blade-pass-frequency harmonics present"
+observe bearing_temp_high "bearing temperature elevated"
+observe suction_low       "suction pressure low, NPSH margin eroded"
+observe head_low          "developed head below curve"
+observe crackling         "audible vapour-bubble implosion"
+observe duty_changed      "duty point changed"
+observe throttled         "discharge throttled"
+observe near_critical     "running speed near a structural critical"
+observe mount_suspect     "accelerometer mount integrity questioned"
+observe calib_overdue     "instrument calibration past due"
+observe current_broadband "stator current broadband modulation"
+observe current_sidebands "stator current blade-pass sidebands"
+
+# Two-phase flow is stochastic, a geometric defect is shaft-locked. A real spectrum cannot
+# show both, so if both appear the instrument is at fault -- the compiler generates that doubt.
+exclusive current_broadband current_sidebands
+
+# ─── diagnoses ──────────────────────────────────────────────────────────────
+claim cavitation      "impeller cavitation"        needs vib_high suction_low
+claim bearing_wear    "bearing degradation"        needs vib_high bearing_temp_high
+claim impeller_defect "impeller geometric wear"    needs vib_high vib_bpf
+claim misalignment    "shaft misalignment"         needs vib_high vib_1x
+
+# ─── benign explanations, which are what suppress nuisance alarms ───────────
+excuse duty_change "pump changed duty point"    needs duty_changed
+excuse offdesign   "running off design point"   needs throttled
+excuse resonance   "structural resonance"       needs near_critical
+
+# ─── reasons to distrust the instruments ────────────────────────────────────
+doubt mount_loose "accelerometer mount loose" needs mount_suspect
+  undermines vib_high vib_1x vib_bpf
+
+doubt calib_stale "calibration stale" needs calib_overdue
+  undermines vib_high bearing_temp_high current_broadband current_sidebands
+
+# ─── how the evidence discriminates ─────────────────────────────────────────
+# A live benign explanation defeats the inference to a fault.
+duty_change undercuts cavitation impeller_defect misalignment
+offdesign   undercuts cavitation
+resonance   undercuts misalignment bearing_wear
+
+# Discriminating evidence defeats the benign explanation, reinstating the fault.
+suction_low       rebuts duty_change offdesign
+head_low          rebuts duty_change
+bearing_temp_high rebuts resonance
+crackling         rebuts resonance offdesign impeller_defect
+misalignment      rebuts resonance
+
+# Cavitation and impeller wear both destroy head. With no discriminator the honest answer is
+# "cannot tell", and mutual rebuttal is how that is said.
+cavitation      rebuts impeller_defect
+impeller_defect rebuts cavitation
+
+# The current channel breaks that deadlock, in whichever direction the spectrum points.
+current_broadband rebuts impeller_defect
+current_sidebands rebuts cavitation
+
+# ─── what to do ─────────────────────────────────────────────────────────────
+action continue idle
+action maintain when any cavitation bearing_wear impeller_defect misalignment
+action shutdown safe when bearing_wear
+prefer shutdown over maintain over continue

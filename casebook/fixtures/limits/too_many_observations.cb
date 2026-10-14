@@ -1,0 +1,47 @@
+# DELIBERATELY OVER THE LIMIT. cbc must REFUSE this file.
+#
+# Generated fixture, kept because mutation testing proved the limit was untested: raising the cap from 30 to 300
+# in lower.cpp left all 42 tests passing. The guard could have been loosened or deleted and nothing would have
+# noticed, which matters because past 31 observations the failure is SILENT -- binding's bit() returns 0 for any
+# observation index >= 32, so those observations would never assert and the device would answer confidently with
+# an incomplete picture of the world.
+casebook too_many_obs v1
+source "generated fixture for the observation cap" dated 2026-09-25 by "quorum"
+observe o00 "observation 0"
+observe o01 "observation 1"
+observe o02 "observation 2"
+observe o03 "observation 3"
+observe o04 "observation 4"
+observe o05 "observation 5"
+observe o06 "observation 6"
+observe o07 "observation 7"
+observe o08 "observation 8"
+observe o09 "observation 9"
+observe o10 "observation 10"
+observe o11 "observation 11"
+observe o12 "observation 12"
+observe o13 "observation 13"
+observe o14 "observation 14"
+observe o15 "observation 15"
+observe o16 "observation 16"
+observe o17 "observation 17"
+observe o18 "observation 18"
+observe o19 "observation 19"
+observe o20 "observation 20"
+observe o21 "observation 21"
+observe o22 "observation 22"
+observe o23 "observation 23"
+observe o24 "observation 24"
+observe o25 "observation 25"
+observe o26 "observation 26"
+observe o27 "observation 27"
+observe o28 "observation 28"
+observe o29 "observation 29"
+observe o30 "observation 30"
+
+claim c1 "something" needs o00
+excuse e1 "not really" needs o01
+e1 rebuts c1
+action act safe when any c1
+action rest idle
+prefer act over rest

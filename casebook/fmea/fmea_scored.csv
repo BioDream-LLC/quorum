@@ -1,0 +1,27 @@
+# A SCORED FMEA -- CONSTRUCTED, not a third-party document. Said plainly because it matters.
+#
+# The HAZOP and LOPA fixtures in this directory are transcriptions of published studies, and that is deliberate: a
+# finding about prose is only trustworthy if the prose is somebody else's. These rows are constructed, and the
+# justification is different in kind -- the rules being exercised are arithmetic and a published lookup table, not a
+# reading of English. RPN = S x O x D is definitional, and the Action Priority bands are reproduced from the AIAG &
+# VDA FMEA Handbook (2019) and verified against them.
+#
+# REGISTERED LIMIT: unlike the HAZOP and LOPA detectors, these have never been run against a real third-party FMEA.
+# Both real FMEAs this project has found are CC BY-NC-ND, which forbids derivative works, so neither can be shipped
+# here. See DOC-A19 in docs/assumptions.tsv.
+#
+# Each row exercises exactly one thing:
+#
+#   line 12  S=10 O=2 D=7  RPN 140  AP HIGH    no action  -> NO ACTION, and the victim of the inversion below
+#   line 13  S=3  O=8 D=8  RPN 192  AP MEDIUM  has action -> RANK INVERSION: higher RPN, lower priority
+#   line 14  S=8  O=3 D=5  RPN 120 stated 100             -> RPN ARITHMETIC
+#   line 15  S=2  O=2 D=2  RPN 8    AP LOW     no action  -> nothing; a low-priority row needs no action
+#
+# The pair on lines 12 and 13 is the documented reason the 2019 handbook replaced RPN with Action Priority: the
+# product lets a frequent cosmetic defect (192) outrank a rare safety failure (140). A team sorting by RPN, or
+# applying the RPN >= 100 cutoff used in published studies, works on the wrong one first.
+Item,Failure Mode,Effect,Cause,Severity,Occurrence,D,Detection Method,RPN,Recommended Action
+Brake actuator,Fails to release,Wheel lockup and loss of control,Return spring fatigue,10,2,7,Driver notices drag,140,
+Trim panel,Surface blemish,Visible cosmetic defect,Mould wear,3,8,8,Visual inspection at end of line,192,Refinish mould every 5000 cycles
+Coolant pump,Reduced flow,Engine overheats and head gasket fails,Impeller erosion,8,3,5,Temperature gauge,100,Revise impeller material
+Badge,Slight misalignment,Noticed only on close inspection,Fixture tolerance,2,2,2,Operator check,8,

@@ -1,0 +1,4 @@
+Deviation,Cause,Consequence,Severity,Safeguards
+High level,LT-101 fails low,Tank overflow to bund,Catastrophic,LAH-102 independent switch
+High pressure,PSV-203 blocked,Vessel rupture,Major,PSV-204 second relief
+Low flow,Strainer fouled,Pump cavitation,Moderate,FAL-105 low flow alarm

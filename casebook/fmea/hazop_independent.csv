@@ -1,0 +1,4 @@
+Node,Deviation,Cause,Consequence,Safeguards,Action
+V-201,High level,Inlet valve XV-201 jammed open,Vessel overflow,Independent LSH-202 trips inlet; separate I/O,None
+V-201,High level,Control loop LIC-201 failure,Overflow,LSH-202 independent trip; PSV-203,None
+V-201,High pressure,Vent blocked,Rupture,PSV-203 direct-acting,Inspect annually

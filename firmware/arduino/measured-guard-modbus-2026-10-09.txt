@@ -1,0 +1,82 @@
+# Uno R4 Minima, 2026-10-09: runtime firmware with the AI guard and Modbus RTU, built in Docker by
+# firmware/arduino/build-runtime.sh (quorum-arduino:1); images by quorum-studio image -board unor4 (studio 0.26.282).
+# Host lines (qblob sweep / test_modbus) for the same images:
+#   DEVICE centrifugal-pump states 16384 asserts 1024 fnv1a 0xe5408b85
+#   GUARD centrifugal-pump pairs 49152 accepted 46326 replaced 2826 weaker 0 fnv1a 0xac18f721
+#   MODBUS centrifugal-pump states 16384 fnv1a 0x074d5609
+#   DEVICE held-demo states 32 asserts 8 fnv1a 0x47e74785
+#   GUARD held-demo pairs 96 accepted 61 replaced 35 weaker 0 fnv1a 0x2da22e5f
+# All match. Worst cycle 16,796 (349.916 us) vs 16,822 with the previous firmware build: same work, different code layout.
+
+## pump, boot report
+=== quorum runtime on Arduino (report 0) ===
+core clock      48000000
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+casebook        centrifugal-pump v3
+source          FMEA-PUMP-001 rev C
+arguments       44, attacks 66, observations 14
+image           OK, fingerprint 0x2e4c18a0
+not Decided     86   construction faults 0
+steps           max 140, proven bound 248, WITHIN
+worst cycle     16796 cycles = 349.916 us (state 0x0, cold, instantiate+decide)
+DEVICE centrifugal-pump states 16384 asserts 1024 fnv1a 0xe5408b85
+GUARD centrifugal-pump pairs 49152 accepted 46326 replaced 2826 weaker 0 fnv1a 0xac18f721
+modbus          send any Modbus RTU request (slave 1) to switch to Modbus mode
+
+## pump over Modbus (tools/modbus/qmodbus.ps1)
+board on COM3  map v1  fingerprint 0x2e4c18a0  observations 14  members 1  channels 0
+MODBUS states 16384 fnv1a 0x074d5609  (39.2 s, 2.4 ms per state, write + read)
+guard, actions 0 continue / 1 maintain / 2 shutdown; reasons 0 agrees, 1 more cautious, 2 less cautious (replaced):
+state 0x0000: rulebook says action 0; proposal 0 -> act on 0, accepted 1, reason 0
+state 0x0000: rulebook says action 0; proposal 1 -> act on 1, accepted 1, reason 1
+state 0x0000: rulebook says action 0; proposal 2 -> act on 2, accepted 1, reason 1
+state 0x0009: rulebook says action 2; proposal 0 -> act on 2, accepted 0, reason 2
+state 0x0009: rulebook says action 2; proposal 1 -> act on 2, accepted 0, reason 2
+state 0x0009: rulebook says action 2; proposal 2 -> act on 2, accepted 1, reason 0
+
+## held-demo (format-3 image, 5 s hold on bearing temperature), boot report
+=== quorum runtime on Arduino (report 0) ===
+core clock      48000000
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+casebook        held-demo v1
+source          quorum fixture: time in rules
+arguments       19, attacks 20, observations 5
+image           OK, fingerprint 0x63befb55
+not Decided     0   construction faults 0
+steps           max 52, proven bound 88, WITHIN
+worst cycle     6884 cycles = 143.416 us (state 0x0, cold, instantiate+decide)
+DEVICE held-demo states 32 asserts 8 fnv1a 0x47e74785
+GUARD held-demo pairs 96 accepted 61 replaced 35 weaker 0 fnv1a 0x2da22e5f
+modbus          send any Modbus RTU request (slave 1) to switch to Modbus mode
+
+## held-demo over Modbus: raw channel values written in real time
+   0.0 s  no samples yet (channels blind)                -> inspect
+   0.0 s  bearing 95.0 C, vibration 2.0: hold starts     -> carry_on
+   1.0 s  still 95.0 C after 1 s                         -> carry_on
+   2.1 s  still 95.0 C after 2 s                         -> carry_on
+   3.1 s  still 95.0 C after 3 s                         -> carry_on
+   4.1 s  still 95.0 C after 4 s                         -> carry_on
+   5.1 s  still 95.0 C after 5 s                         -> inspect
+   6.1 s  still 95.0 C after 6 s                         -> inspect
+   6.1 s  vibration 12.0 mm/s (no hold)                  -> trip
+   6.1 s  bearing 84.0 C: below release                  -> carry_on
+  12.2 s  no samples for 6 s: vibration stale            -> inspect
+
+## 2026-10-10: re-flashed with the valid-request Modbus switch (commit ac2e0be), pump image
+=== quorum runtime on Arduino (report 0) ===
+core clock      48000000
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+casebook        centrifugal-pump v3
+source          FMEA-PUMP-001 rev C
+arguments       44, attacks 66, observations 14
+image           OK, fingerprint 0x2e4c18a0
+not Decided     86   construction faults 0
+steps           max 140, proven bound 248, WITHIN
+worst cycle     16796 cycles = 349.916 us (state 0x0, cold, instantiate+decide)
+DEVICE centrifugal-pump states 16384 asserts 1024 fnv1a 0xe5408b85
+GUARD centrifugal-pump pairs 49152 accepted 46326 replaced 2826 weaker 0 fnv1a 0xac18f721
+modbus          send any Modbus RTU request (slave 1) to switch to Modbus mode
+qmodbus info: board on COM3  map v1  fingerprint 0x2e4c18a0  observations 14  members 1  channels 0

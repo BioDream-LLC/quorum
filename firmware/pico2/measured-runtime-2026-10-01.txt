@@ -1,0 +1,22 @@
+# quorum_runtime on a Raspberry Pi Pico 2 (RP2350, Cortex-M33, 150 MHz), image written by quorum studio from
+# casebook/pump/pump.cb (`quorum-studio image pump.cb`). Expected line from the host: `qblob sweep`.
+#
+# PROVENANCE OF THIS FILE: transcribed from the serial capture on 2026-10-01 at about 19:30 CDT. The raw
+# C:\quorum-pico\serial.txt was overwritten by the next run before it was copied here. If a fresh capture exists below
+# the line of dashes, it supersedes this transcription.
+
+=== quorum runtime on RP2350 (report 0) ===
+casebook        centrifugal-pump v3
+source          FMEA-PUMP-001 rev C
+written by      J. Okafor
+arguments       44, attacks 66, observations 14
+image           OK, fingerprint 0x2e4c18a0
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+not Decided     86   construction faults 0
+steps           max 140, proven bound 248, WITHIN
+worst cycle     25727 cycles = 171.513 us at 150000000 Hz (state 0x0, cold, instantiate+decide)
+DEVICE centrifugal-pump states 16384 asserts 1024 fnv1a 0xe5408b85
+
+host (qblob sweep):
+DEVICE centrifugal-pump states 16384 asserts 1024 fnv1a 0xe5408b85

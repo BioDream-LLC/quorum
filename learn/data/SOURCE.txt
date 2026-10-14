@@ -1,0 +1,53 @@
+house-votes-84.data
+
+Congressional Voting Records, 1984. UCI Machine Learning Repository.
+Schlimmer, J. (1987). https://doi.org/10.24432/C5C01P
+Licence: Creative Commons Attribution 4.0 International (CC BY 4.0).
+Fetched 2026-09-29 from
+  https://archive.ics.uci.edu/ml/machine-learning-databases/voting-records/house-votes-84.data
+sha256  c87c14110a5ba91d4a1e313ec7392824458152bf071fa5f5452340488337936e
+
+435 rows: 267 democrat, 168 republican. 16 votes per row, each y, n, or ? (392 ? in total).
+'?' does not mean "unknown" in the usual sense: the dataset's documentation says it covers paired against, announced
+against, voted present, and did not vote. It is encoded here as the ABSENCE of both the y and the n feature, which is
+the honest reading -- it asserts nothing -- and it is exactly what AA-CBR's "irrelevant case" rule needs.
+
+tic-tac-toe.data
+
+Tic-Tac-Toe Endgame. UCI Machine Learning Repository.
+Aha, D. (1991). https://doi.org/10.24432/C5688J
+Licence: Creative Commons Attribution 4.0 International (CC BY 4.0).
+Fetched 2026-09-29 from
+  https://archive.ics.uci.edu/ml/machine-learning-databases/tic-tac-toe/tic-tac-toe.data
+sha256  a996a756484d0cf8cbad1680d823aadbfcff8ae2d78c450e6999362d580301c5
+
+958 rows, every one a distinct board: 626 positive (x has three in a row), 332 negative. Nine cells, each x, o, or b
+(blank). Encoded as 27 binary features, cell i is x / is o / is blank, so every board has exactly nine features set.
+
+ai4i2020.csv
+
+AI4I 2020 Predictive Maintenance Dataset. UCI Machine Learning Repository, dataset 601 (2020).
+https://doi.org/10.24432/C5HS5C   https://archive.ics.uci.edu/dataset/601
+Associated paper: Matzka, S. (2020). Explainable Artificial Intelligence for Predictive Maintenance Applications.
+Third International Conference on Artificial Intelligence for Industries (AI4I).
+Licence: Creative Commons Attribution 4.0 International (CC BY 4.0).
+Fetched 2026-09-30. The exact fetch URL was not recorded at the time; the hash below identifies the bytes used.
+sha256  dc6630cd9b1f0f853922fad78a1b6436570d3f1ec863f1dd5c4340ac56bc8a8e
+
+10,000 rows plus a header (UTF-8 BOM, CRLF). SYNTHETIC: the dataset's own description says it reflects real
+predictive-maintenance data, not that it is real data. Results on it say nothing about a real machine.
+
+monks/  (monks-1.train, monks-1.test, monks-3.train, monks-3.test, monks.names)
+
+MONK's Problems. UCI Machine Learning Repository, dataset 70. Wnek, J. (1993). https://doi.org/10.24432/C5R30R
+Introductory paper: Thrun, S. B. et al. (1991). The MONK's Problems: A Performance Comparison of Different Learning
+Algorithms. Technical Report CMU-CS-91-197, Carnegie Mellon University.
+Licence: Creative Commons Attribution 4.0 International (CC BY 4.0).
+Fetched 2026-09-30. The exact fetch URL was not recorded at the time; the hashes below identify the bytes used.
+sha256  d9c328b6f0e095ab10f7bc8468f1d2141f3d08be73e665c3bf0a62994c922606  monks-1.train
+sha256  e501ada3b21d876ab86f3e1614747bd2edc443a685f229a25e480aa1dea629f6  monks-1.test
+sha256  726f258f80be06af4bb2d8831789514a663f5813e47429211fe19dcd367966f8  monks-3.train
+sha256  1d816ae7347afaf895050667adc3f382904c6ed2332d0a2d09353f5e6cb54612  monks-3.test
+sha256  0ce27411e6bce9878ee0bc2a63b9b1e61fcf1ca5416b60783b5de9135f427a11  monks.names
+
+Artificial domains over six attributes. monks-3 has 5% class noise added to its training set by design; monks-1 has none.

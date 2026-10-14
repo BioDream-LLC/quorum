@@ -1,0 +1,104 @@
+casebook centrifugal-pump-conditions v4
+source "FMEA-PUMP-001 rev C" dated 2026-03-14 by "J. Okafor"
+note "CONTROLLED EXPERIMENT. pump.cb plus CONDITION claims and nothing else, so the difference is attributable."
+note ""
+note "pump.cb diagnoses well and responds badly. Every claim in it is `needs A B` -- two coinciding symptoms --"
+note "because it was designed for DIFFERENTIAL DIAGNOSIS: telling cavitation from bearing wear from misalignment."
+note "Comparing it against ordinary prioritised alarm annunciation showed what that costs. A pump with a hot"
+note "bearing and nothing else asserted gets `continue`, while the alarm system it would replace says `shutdown`."
+note "All 14 single symptoms produce no response whatsoever."
+note ""
+note "The missing distinction is between a DIAGNOSIS and a CONDITION. `bearing_wear` is a hypothesis about a"
+note "cause and needs corroboration before anyone acts on it. `bearing running hot` is not a hypothesis -- it is"
+note "a damaging state of affairs, it is damaging whatever the cause, and waiting for a second symptom means"
+note "waiting for the damage. Both belong in a casebook, and pump.cb only had the first kind."
+note ""
+note "Vibration alone classifies at roughly 89%; vibration with motor stator current at roughly 97%."
+note "Dominant nuisance-alarm cause is benign duty-point change, not sensor noise."
+
+# ─── what the instruments report ────────────────────────────────────────────
+observe vib_high          "broadband vibration above alarm threshold"
+observe vib_1x            "1x running speed dominant"
+observe vib_bpf           "blade-pass-frequency harmonics present"
+observe bearing_temp_high "bearing temperature elevated"
+observe suction_low       "suction pressure low, NPSH margin eroded"
+observe head_low          "developed head below curve"
+observe crackling         "audible vapour-bubble implosion"
+observe duty_changed      "duty point changed"
+observe throttled         "discharge throttled"
+observe near_critical     "running speed near a structural critical"
+observe mount_suspect     "accelerometer mount integrity questioned"
+observe calib_overdue     "instrument calibration past due"
+observe current_broadband "stator current broadband modulation"
+observe current_sidebands "stator current blade-pass sidebands"
+
+# Two-phase flow is stochastic, a geometric defect is shaft-locked. A real spectrum cannot
+# show both, so if both appear the instrument is at fault -- the compiler generates that doubt.
+exclusive current_broadband current_sidebands
+
+# ─── diagnoses ──────────────────────────────────────────────────────────────
+claim cavitation      "impeller cavitation"        needs vib_high suction_low
+claim bearing_wear    "bearing degradation"        needs vib_high bearing_temp_high
+claim impeller_defect "impeller geometric wear"    needs vib_high vib_bpf
+claim misalignment    "shaft misalignment"         needs vib_high vib_1x
+
+# ─── conditions: damaging states of affairs, not hypotheses about causes ────
+# Each needs ONE observation, because each IS the thing that matters rather than evidence for it. Still defeasible: a
+# discredited instrument is discredited whatever it is measuring, and `calib_stale` already undermines these readings.
+
+# A hot bearing damages the bearing regardless of why it is hot. Waiting for vibration to confirm it means waiting for
+# the damage the temperature was warning about.
+claim bearing_hot "bearing temperature elevated, cause not yet distinguished" severity 7 needs bearing_temp_high
+
+# Audible vapour-bubble implosion is not evidence OF cavitation, it is cavitation, happening now, removing metal.
+claim cavitating_now "vapour bubbles are collapsing in the pump now" severity 8 needs crackling
+
+# NPSH margin eroded is a damaging operating condition in its own right: it is the state that produces cavitation, and
+# it is actionable before any vibration signature appears.
+claim npsh_eroded "suction conditions outside the pump's NPSH requirement" severity 6 needs suction_low
+
+# A duty change raises load and therefore bearing temperature, and it changes the operating point away from the curve.
+# So it undercuts the temperature and NPSH conditions -- but NOT `cavitating_now`, because a duty change does not make
+# metal-removing implosion acceptable.
+duty_change undercuts bearing_hot npsh_eroded
+
+# ─── benign explanations, which are what suppress nuisance alarms ───────────
+excuse duty_change "pump changed duty point"    needs duty_changed
+excuse offdesign   "running off design point"   needs throttled
+excuse resonance   "structural resonance"       needs near_critical
+
+# ─── reasons to distrust the instruments ────────────────────────────────────
+doubt mount_loose "accelerometer mount loose" needs mount_suspect
+  undermines vib_high vib_1x vib_bpf
+
+doubt calib_stale "calibration stale" needs calib_overdue
+  undermines vib_high bearing_temp_high current_broadband current_sidebands
+
+# ─── how the evidence discriminates ─────────────────────────────────────────
+# A live benign explanation defeats the inference to a fault.
+duty_change undercuts cavitation impeller_defect misalignment
+offdesign   undercuts cavitation
+resonance   undercuts misalignment bearing_wear
+
+# Discriminating evidence defeats the benign explanation, reinstating the fault.
+suction_low       rebuts duty_change offdesign
+head_low          rebuts duty_change
+bearing_temp_high rebuts resonance
+crackling         rebuts resonance offdesign impeller_defect
+misalignment      rebuts resonance
+
+# Cavitation and impeller wear both destroy head. With no discriminator the honest answer is
+# "cannot tell", and mutual rebuttal is how that is said.
+cavitation      rebuts impeller_defect
+impeller_defect rebuts cavitation
+
+# The current channel breaks that deadlock, in whichever direction the spectrum points.
+current_broadband rebuts impeller_defect
+current_sidebands rebuts cavitation
+
+# ─── what to do ─────────────────────────────────────────────────────────────
+action continue idle
+action maintain when any cavitation bearing_wear impeller_defect misalignment bearing_hot npsh_eroded
+# `cavitating_now` joins shutdown, not maintain: damage is being done at this moment, and severity 8 says so.
+action shutdown safe when any bearing_wear cavitating_now
+prefer shutdown over maintain over continue

@@ -1,0 +1,4 @@
+Deviation,Cause,Consequence,Safeguards,SIL
+High level,LT-101 fails low,Overflow,LAH-102 trip (SIL 2, proof tested annually),SIL 2
+High pressure,Vent blocked,Rupture,PSV-203 (assumed tested annually - no record),SIL 1
+Low flow,Pump trips,Dry run,FAL-105 alarm (never proof tested),None

@@ -1,0 +1,13 @@
+casebook min v1
+source "burden-of-proof regression fixture" dated 2026-09-23 by "quorum"
+note "A bare excuse holds in EVERY state, so it undercuts its target in every state, so the target can"
+note "NEVER hold. The burden-of-proof report must name `bare` -- it is the CAUSE, and claim reach only"
+note "reports the symptom. This originally escaped because the report inspected claims and not excuses,"
+note "and an excuse is the argument most likely to be written as a bare assertion."
+observe a "reading a"
+claim c1 "claim one" severity 5 needs a
+excuse bare "bare excuse with no support"
+bare undercuts c1
+action go safe when any c1
+action idle_ idle
+prefer go over idle_

@@ -1,0 +1,26 @@
+casebook unsatisfied-fixture v1
+source "adversarial fixture for the Unsatisfied outcome (not a real asset)" dated 2026-09-22 by "quorum tests"
+note "This casebook is DELIBERATELY BROKEN and cbc must refuse it. Do not fix it."
+note ""
+note "`Unsatisfied` means the casebook decisively rejects every action it declared. It is a casebook defect, not an"
+note "ambiguous plant, and the arbiter reports it separately for exactly that reason -- conflating it with"
+note "Indeterminate would send an engineer to look at the equipment when the document is what is wrong."
+note ""
+note "The mistake here is the one that makes it happen in practice: giving the IDLE action a condition. An idle"
+note "action is what survives when nothing else fires, so it must have no conditions at all. Give it one, and any"
+note "state where that condition fails and no other action applies rejects everything."
+note ""
+note "Neither real casebook can test this: both report Unsatisfied in 0 of their states, which is what a correct"
+note "casebook does. That is precisely why a fixture is needed -- realistic data proves the realistic data does not"
+note "trip the bug."
+
+observe x "condition x asserted"
+observe y "condition y asserted"
+
+claim cx "x holds" needs x
+claim cy "y holds" needs y
+
+# The defect: the idle action is gated on cy, so when neither x nor y is asserted nothing at all can be selected.
+action idle_act idle when cy
+action act_on   safe when cx
+prefer act_on over idle_act

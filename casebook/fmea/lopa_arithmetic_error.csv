@@ -1,0 +1,12 @@
+# The same study as lopa_clean.csv with ONE digit changed: row 2's stated answer reads 1.00E-06 where its own
+# numbers give 1.00E-05.
+#
+# A wrong exponent is the defect this check exists for. It is one character in a spreadsheet, it survives every
+# review because the cell looks the same shape as a right one, and it changes the conclusion by an order of
+# magnitude. It is also the one class of finding that cannot be wrong because a phrase was misread -- the document
+# supplied both the inputs and the answer, and they disagree.
+Initiating Cause,Frequency,IPL 1: PSV-101 relief valve to flare,IPL 2: SIL 2 rated high level trip on LT-201 implemented in the safety PLC,IPL 3: Bund with 110% capacity,Mitigated Event Frequency,Target Risk Frequency
+Inlet line rupture from external corrosion,0.01,0.01,,0.1,1.00E-05,1.00E-04
+Overfilling during batch charging,0.1,,0.001,0.1,1.00E-06,
+Thermal expansion with the outlet isolated,0.05,0.01,0.001,,5.00E-07,
+Control system failure leaves the inlet valve open,0.01,0.01,,0.1,1.00E-05,

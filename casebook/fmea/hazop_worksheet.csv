@@ -1,0 +1,8 @@
+Node,Deviation,Cause,Consequence,Safeguards,Action
+V-101,High level,Inlet control valve jammed open,Vessel overflow to bund,LAH alarm on LT-101; operator round,Confirm LAH tested
+V-101,High level,Level instrument LT-101 failed low,Vessel overflow undetected,None - LT-101 is the only measurement,Add independent LSH
+V-101,High level,Level control loop failure,Uncontrolled transfer to flare,LAH alarm on LT-101,Review loop integrity
+V-101,No flow,Feed pump P-101 trip,Loss of production; possible dry running,Low flow alarm FAL-101,None
+V-101,Low level,Outlet valve passing,Pump cavitation and damage,LAL alarm on LT-101,Check valve seat
+V-101,High temperature,Cooling water loss,Vapour generation and overpressure,PSV-101; TAH alarm,Verify PSV sizing
+V-101,High pressure,Vent line blocked,Vessel rupture,PSV-101,Inspect vent annually

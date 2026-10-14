@@ -1,0 +1,62 @@
+# Pico 2 (RP2350), 2026-10-10: runtime firmware with the AI guard and Modbus RTU, flashed as a studio pico2 image
+# of casebook/pump/pump.cb. Host expects DEVICE 0xe5408b85, GUARD 0xac18f721, MODBUS 0x074d5609 -- all three match.
+#
+# The first flash of this firmware went silent: any received byte switched it to Modbus mode, and a stray byte from
+# the PC arrived after enumeration. Both boards now switch only on a valid request (CRC right, slave 1 or broadcast).
+# Below: the fixed firmware; text reports continued past report 8, then the master switched it by its first request.
+
+## serial, COM4, 115200
+=== quorum runtime on RP2350 (report 8) ===
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+casebook        centrifugal-pump v3
+source          FMEA-PUMP-001 rev C
+written by      J. Okafor
+arguments       44, attacks 66, observations 14
+image           OK, fingerprint 0x2e4c18a0
+not Decided     86   construction faults 0
+steps           max 140, proven bound 248, WITHIN
+worst cycle     23146 cycles = 154.306 us at 150000000 Hz (state 0x0, cold, instantiate+decide)
+DEVICE centrifugal-pump states 16384 asserts 1024 fnv1a 0xe5408b85
+GUARD centrifugal-pump pairs 49152 accepted 46326 replaced 2826 weaker 0 fnv1a 0xac18f721
+modbus          send any Modbus RTU request (slave 1) to switch to Modbus mode
+
+## Modbus, COM4, tools/modbus/qmodbus.ps1 sweep, then guard -State 9
+MODBUS states 16384 fnv1a 0x074d5609  (33.4 s, 2.0 ms per state, write + read)
+board on COM4  map v1  fingerprint 0x2e4c18a0  observations 14  members 1  channels 0
+state 0x0000: rulebook says action 0; proposal 0 -> act on 0, accepted 1, reason 0
+state 0x0000: rulebook says action 0; proposal 1 -> act on 1, accepted 1, reason 1
+state 0x0000: rulebook says action 0; proposal 2 -> act on 2, accepted 1, reason 1
+state 0x0009: rulebook says action 2; proposal 0 -> act on 2, accepted 0, reason 2
+state 0x0009: rulebook says action 2; proposal 1 -> act on 2, accepted 0, reason 2
+state 0x0009: rulebook says action 2; proposal 2 -> act on 2, accepted 1, reason 0
+
+## held-demo image (format 3, a 5 s hold), same firmware, flashed afterwards. Host expects DEVICE 0x47e74785, GUARD 0x2da22e5f.
+=== quorum runtime on RP2350 (report 1) ===
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+casebook        held-demo v1
+source          quorum fixture: time in rules
+written by      quorum project
+arguments       19, attacks 20, observations 5
+image           OK, fingerprint 0x63befb55
+not Decided     0   construction faults 0
+steps           max 52, proven bound 88, WITHIN
+worst cycle     15358 cycles = 102.386 us at 150000000 Hz (state 0x0, cold, instantiate+decide)
+DEVICE held-demo states 32 asserts 8 fnv1a 0x47e74785
+GUARD held-demo pairs 96 accepted 61 replaced 35 weaker 0 fnv1a 0x2da22e5f
+modbus          send any Modbus RTU request (slave 1) to switch to Modbus mode
+
+## held-demo over Modbus: raw channel values written in real time (qmodbus.ps1 held)
+board on COM4  map v1  fingerprint 0x63befb55  observations 5  members 1  channels 2
+   0.0 s  no samples yet (channels blind)                -> inspect
+   0.0 s  bearing 95.0 C, vibration 2.0: hold starts     -> carry_on
+   1.0 s  still 95.0 C after 1 s                         -> carry_on
+   2.0 s  still 95.0 C after 2 s                         -> carry_on
+   3.1 s  still 95.0 C after 3 s                         -> carry_on
+   4.1 s  still 95.0 C after 4 s                         -> carry_on
+   5.1 s  still 95.0 C after 5 s                         -> inspect
+   6.1 s  still 95.0 C after 6 s                         -> inspect
+   6.1 s  vibration 12.0 mm/s (no hold)                  -> trip
+   6.1 s  bearing 84.0 C: below release                  -> carry_on
+  12.1 s  no samples for 6 s: vibration stale            -> inspect

@@ -1,0 +1,33 @@
+# Hospital oxygen supply (PSA) HAZOP -- Table 6, four critical deviations, 14 rows.
+#
+# SOURCE: Yousofnejad Y, Afsari F, Es'haghi M. "Dynamic risk assessment of hospital oxygen supply
+#         system by HAZOP and intuitionistic fuzzy." PLoS ONE 18(2):e0280918, 2023.
+#         doi:10.1371/journal.pone.0280918 -- licensed CC BY, so this transcription and anything
+#         derived from it may be redistributed with credit. Both published FMEAs previously tested
+#         were CC BY-NC-ND, which forbade exactly this.
+#
+# HEADERS ARE THE PAPER'S OWN: "Control/Existing", "Control/suggested", "Effects". They are NOT retyped to
+#         suit the importer. An earlier version of this fixture had them renamed to Safeguards/Action/Consequence,
+#         which produced 13 findings -- while the tool on the paper's real headers reported NO SAFEGUARDS COLUMN
+#         and found nothing. Normalising a document by hand destroys the only reason to have an importer: that a
+#         finding is attributable to the customer's document rather than to my transcription of it.
+#
+# WHY IT IS HERE: this document defeated the tag-based common-cause detector completely. It reported
+#         zero problems on a worksheet where 13 of 14 safeguards are "visual inspection" and 10 of 14
+#         are "the alarm of the device". Not one row contains an instrument tag. A real HAZOP team
+#         names its safeguards in prose.
+Node,Guideword,Parameter,Deviation,Cause,Effects,Control/Existing,Control/suggested
+1,Over,Pressure,Over pressure of gas,Failure and burning of the solenoid valve,"Not working the solenoid valve, not opening inlet valve, and raising internal pressure",Visual inspection - alarm of device,Replacement of parts according to the repair program
+1,Over,Pressure,Over pressure of oil,Failure of the pressure switch in the fan of compressor,raising the oil temperature - lack of ventilation and air circulation in the condenser,Visual inspection - the alarm of device,Ensuring of connection the voltage to pressure switch - replacement if necessary
+3,Over,Pressure,Over pressure of gas,Improper adjustment or defect of the pressure switch in Oxygen Generator,Raising the pressure of the oxygen more than the pressure point of the switch. not turning off the Oxygen Generator,"Sensors and Thermometers, visual inspection",Replacement of parts according to the repair program
+3,Over,Pressure,Over pressure of gas,Failure of the pneumatic valve,Defects in the air cycle inside the adsorbent column - reducing the oxygen purity,Check the purity of the output oxygen,Replacement of parts according to the repair program
+3,Over,Pressure,Over pressure of gas,Malfunction of the outlet pressure regulator,"Failure to reduce the oxygen pressure for consumption, the tension on the inner wall of the pipelines, and the possibility of oxygen leakage",visual inspection,Replacement of parts according to the repair program
+1,Over,Voltage,Over voltage,Failure and burning of solenoid valve,Improper operation the switching on/off of current - raising internal temperature,Existing instructions - visual inspection - the alarm of the device,Use of voltage regulator inside the network - replacement of defective part
+1,Over,Voltage,Over voltage,Failure in the starter relay in the compressor,Raising the temperature - having engine sound but not working,Existing instructions - visual inspection - the alarm of the device,Use of voltage regulator inside the network - replacement of defective part
+1,Over,Voltage,Over voltage,Failure of the overload device due to the high heat of the engine,Shutdown and burnout of the engine,Existing instructions - visual inspection - the alarm of the device,Use of voltage regulator inside the network - replacement of defective part
+1,Over,Voltage,Over voltage,Failure of the board relay of the fan,Failure to supply the voltage of fan and to burn the fan,Existing instructions - visual inspection - the alarm of the device,Use of voltage regulator inside the network - replacement of defective part
+1,Over,Voltage,Over voltage,Short circuit in the contactor due to power fluctuation - overheating its coil,Lack of protection of the motor against overload and current - creating a momentary pulse in the circuit - turning the engine continuously on and off,Existing instructions - visual inspection - the alarm of the device,Use of voltage regulator inside the network - replacement of defective part
+1,Over,Voltage,Over voltage,Short electrical connection inside the capacitor due to the loss of the inner wet layer,Creating the overload and burning the capacitor - failure the compressor motor - Condenser fan turns on but the compressor not start,Existing instructions - visual inspection - the alarm of the device,Use of voltage regulator inside the network - replacement of defective part
+1,Over,Voltage,Over voltage,Overload relay does not cut off the circuit and does not operate in time by increasing voltage and heat,Damaging to the engine due to overload and burning the motor,Existing instructions - visual inspection - the alarm of the device,Use of voltage regulator inside the network - replacement of defective part
+1,Over,Temperature,Over-temperature of oil,Dirty refrigeration components,raising the temperature of compressor oil and damaging to air conditioner components,Existing instructions - Visual inspection - the alarm of the device,Ensuring of connection the voltage to the fan motor - replace if necessary
+1,Over,Temperature,Over-temperature of output air,Low level of refrigerant in the compressor,Raising the temperature of compressor oil - Fault in drain of condensation,Visual inspection,Fix leakage - Refrigerant gas injection

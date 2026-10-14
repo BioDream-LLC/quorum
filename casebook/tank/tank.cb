@@ -1,0 +1,128 @@
+casebook tank-409 v2
+source "UMich SAFEChE HAZOP tutorial; CSB report 2010-02-I-PR" dated 2009-10-23 by "CAPECO, Bayamon PR"
+note "Main tank full, shipment routed to four smaller tanks by a largely manual process."
+note "Tank 409's level transmitter was BROKEN, so fill time was calculated by hand and overestimated."
+note "CSB key finding: NO REDUNDANT OR INDEPENDENT SAFEGUARDS TO PREVENT OVERFILLING A TANK."
+note "HAZOP node: MORE + LEVEL. Published typical cause: 'More input than output'."
+note "v2: sensor health is now DERIVED from channel declarations rather than hand-authored."
+
+# ─── readings a human supplies ──────────────────────────────────────────────
+# Not every observation comes from a wire. A gauge somebody walked out and read, and an arithmetic estimate
+# somebody did on paper, are both evidence -- of very different quality -- and both belong in the casebook.
+observe gauge_normal   "local gauge read by hand: normal"
+observe gauge_high     "local gauge read by hand: high"
+observe fill_calc_room "manual fill-time calculation says there is room -- AN ESTIMATE, NOT A MEASUREMENT"
+observe hi_level_alarm "independent high level switch active"
+observe dike_liquid    "liquid seen in the diked region -- already too late"
+
+# ─── readings the instruments supply ────────────────────────────────────────
+observe xmtr_normal    "level transmitter reports a normal level"
+observe xmtr_high      "level transmitter reports a high level"
+observe inlet_flow     "X1 open, transfer in progress"
+observe outlet_flow    "pump Y1 running, withdrawing"
+observe gas_detected   "vapour detected in the tank farm -- already too late"
+
+# ─── the binding ────────────────────────────────────────────────────────────
+# Every number below is here, in the reviewed and versioned document, rather than in firmware. Each channel also
+# yields <name>_unavailable for free, and <name>_flatline where asked for -- which is how a sensor failure becomes
+# something the casebook can argue about instead of something it cannot see.
+
+channel tank_level "Tank 409 level transmitter, 4-20 mA" unit percent
+  range 0 100
+  stale_after 10s
+  flatline_after 30m epsilon 0.5
+  asserts xmtr_high above 85.0 release 80.0
+  asserts xmtr_normal below 80.0 release 85.0
+
+channel inlet_rate "X1 inlet flow meter" unit m3/h
+  range 0 2000
+  stale_after 10s
+  asserts inlet_flow above 10.0 release 5.0
+
+channel outlet_rate "Y1 outlet flow meter" unit m3/h
+  range 0 2000
+  stale_after 10s
+  asserts outlet_flow above 10.0 release 5.0
+
+channel gas_lel "tank farm LEL detector" unit percent
+  range 0 100
+  stale_after 30s
+  asserts gas_detected above 10.0 release 5.0
+
+# A transmitter cannot simultaneously report normal and high. With both derived from one 4-20 mA channel the
+# binding layer already makes that impossible, so these states are unreachable in practice -- the validator says
+# so explicitly. The declaration is kept anyway: it costs four arguments and it is the safeguard that survives
+# somebody later binding these two readings to two separate instruments.
+exclusive xmtr_normal xmtr_high
+
+# ─── whether the transmitter can be believed at all ─────────────────────────
+# v1 hand-authored an `xmtr_flatline` observation and left detecting it to the integrator. It is now generated:
+# `tank_level_flatline` fires when the channel delivers fresh, in-range, entirely plausible samples that have not
+# moved for thirty minutes. That is what a failed 4-20 mA transmitter does, and it is exactly what nobody at
+# CAPECO detected.
+doubt xmtr_untrusted "a frozen or missing transmitter is not a reading"
+  when any tank_level_flatline tank_level_unavailable
+  undermines xmtr_normal xmtr_high
+
+# ─── the central claim of this casebook ─────────────────────────────────────
+# Holds unless some live, trustworthy reading defeats it. Note which observation is absent from the rebuttals:
+# fill_calc_room. An arithmetic estimate is not a measurement, and believing otherwise destroyed the terminal.
+claim no_measure "no trustworthy independent measurement of the level exists"
+
+xmtr_normal  rebuts no_measure
+xmtr_high    rebuts no_measure
+gauge_normal rebuts no_measure
+gauge_high   rebuts no_measure
+
+# ─── what the level actually is ─────────────────────────────────────────────
+claim level_safe  "the level is safe"        when any xmtr_normal gauge_normal
+claim level_high  "the level is high"        when any xmtr_high gauge_high hi_level_alarm
+claim overfilling "the tank is overfilling"  when any gas_detected dike_liquid
+
+no_measure  rebuts level_safe
+level_high  rebuts level_safe
+overfilling rebuts level_safe
+
+# ─── the HAZOP deviation, and the hazard it creates ─────────────────────────
+# "More input than output" -- or an inlet meter that has stopped talking, because a transfer nobody can measure
+# must be assumed to be running. Treating a dead flow meter as zero flow is the same mistake as treating a dead
+# level transmitter as an empty tank.
+claim more_level "more input than output, or an inlet that cannot be measured"
+  when any inlet_flow inlet_rate_unavailable
+outlet_flow rebuts more_level
+
+# cbc warns that nothing reasons about `outlet_rate_unavailable`, and it is right to. The warning is left standing
+# rather than silenced, because the reasoning behind leaving it is worth reading: a dead outlet meter cannot assert
+# `outlet_flow`, so it cannot rebut `more_level`, so the casebook assumes the tank is filling. That is the
+# conservative direction -- the cost is a possible unnecessary stop on a balanced transfer, not an undetected
+# overfill. Availability traded for safety, deliberately, and the trade is visible here rather than implied.
+
+# The CSB finding as a single claim: filling a tank whose level nobody can measure.
+claim unmeasured_filling "filling a tank with no independent measurement of its level"
+  needs more_level no_measure
+
+# Degraded mode. If the LEL detector is out, a release cannot be detected at all, and continuing a transfer whose
+# only remaining safeguard is gone is not a defensible position.
+claim blind_to_release "no working means of detecting a release" when gas_lel_unavailable
+
+# ─── what to do ─────────────────────────────────────────────────────────────
+# A tank's safe state is "stop adding material", unlike the pump, whose safe state is a full shutdown. That is why
+# the fallback is declared per casebook rather than baked into the arbiter.
+action monitor           idle
+# `needs`, not `when`: flow present AND the level positively believed safe.
+#
+# This was `when inlet_flow` alone, which continues filling whenever product is moving and nothing happened to raise a
+# stop condition. The net behaviour was already correct, because stop_transfer outranks this and covers every unsafe
+# case -- but the difference between "nothing said stop" and "something said safe" is the whole subject of AUTHORING.md
+# §7 and the whole reason the Piper Alpha casebook exists. This casebook was relying on absence.
+#
+# Found by pass 6: `level_safe` was attacked by three claims and attacked nothing, so it could never influence a
+# decision. It read in review as though the level was being checked. It was not.
+action continue_transfer needs inlet_flow level_safe
+action stop_transfer     safe when any level_high unmeasured_filling no_measure overfilling blind_to_release
+# Overfilling means product is already leaving the tank. The response is to stop the transfer AND evacuate, and the
+# name says both. It was `evacuate`, ranked above the safe action `stop_transfer`, so the AI guard would accept
+# "evacuate" where this rulebook said stop -- and the name never promised that the transfer stopped. Under this name
+# the top-ranked action contains the safe action, so accepting it in place of stop is genuinely more cautious.
+action stop_and_evacuate when overfilling
+prefer stop_and_evacuate over stop_transfer over continue_transfer over monitor

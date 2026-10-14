@@ -1,0 +1,4 @@
+Node,Parameter,Guide Word,Cause,Consequence,Safeguards
+V-1,Level,High,LT-101 fails low,Overflow to roof,LAH-102 independent switch
+V-1,Level,Low,LT-101 fails high,Pump cavitation and seal loss,LAL-103 independent switch
+V-1,Flow,No,XV-1 stuck closed,Loss of feed,FAL-105

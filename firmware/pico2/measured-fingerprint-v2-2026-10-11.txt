@@ -1,0 +1,11 @@
+Pico 2 (COM4) reflashed 2026-10-11 with the format-2 fingerprint pump image (C:\quorum-pico\pump-pico2.uf2,
+built from fd58417), firmware unchanged since ac2e0be.
+
+qmodbus info:
+  board on COM4  map v1  fingerprint 0x1a375f9d  observations 14  members 1  channels 0
+  decision: outcome 0, action position 0, fallback 0, 3 actions, 140 steps
+qmodbus sweep:
+  MODBUS states 16384 fnv1a 0x074d5609  (46.1 s, 2.8 ms per state, write + read)
+
+The fingerprint matches the Uno R4 and cbc (0x1a375f9d, was 0x2e4c18a0). The MODBUS line is unchanged, as expected:
+the fingerprint change does not alter any decision. The setpoint-tamper refusal was shown on the Uno R4 only.

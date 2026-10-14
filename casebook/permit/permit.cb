@@ -1,0 +1,111 @@
+casebook piper-permit v1
+source "Public Inquiry into the Piper Alpha Disaster (Cullen, 1990); Energy Institute incident summary" dated 1988-07-06 by "Piper Alpha, North Sea"
+note "167 fatalities, 62 survivors. Standby condensate pump A was de-energised for maintenance; its discharge"
+note "pressure safety valve had been REMOVED and blind flange assemblies fitted to the open PSV connections."
+note "A permit-to-work had been raised and suspended, sitting in the permit box -- the formal signal that pump A"
+note "must not be started. The running condensate pump B then failed and would not restart, separator liquid"
+note "levels began rising toward a total platform shutdown, and the night shift -- who knew pump A had been taken"
+note "out of service but BELIEVED THE WORK HAD NOT YET BEGUN -- re-energised and started it."
+note "Cullen: a breakdown in communication at shift handover, and failure of the permit-to-work system."
+note ""
+note "This casebook exists to test a specific claim quorum makes. The night shift's belief was an inference from"
+note "the ABSENCE of information: nobody had told them the work had started. Under closed-world reasoning an"
+note "absent observation is decisively false, which is exactly how 'no one mentioned it' becomes 'it did not"
+note "happen'. The witness is required to render that step as an ASSUMPTION, in capitals. If it does not, the"
+note "product does not do what it claims."
+note ""
+note "A third problem shape, deliberately: the pump casebook weighs competing hypotheses and the tank casebook"
+note "weighs disagreeing sources. This one reasons about RECORDS AND AUTHORITY, where the evidence is a document"
+note "somebody did or did not consult rather than anything an instrument can report."
+
+# ─── positive acts: things somebody actually did ────────────────────────────
+# Every one of these is an ACT, not a state of the world, and that is the point. A control room can know that a
+# walkdown happened; it cannot know that no maintenance is in progress.
+observe psv_certified      "the PSV has been reinstalled and certified, and that certificate is in hand"
+observe walkdown_done      "this shift has physically inspected pump A and its pipework"
+observe handover_covered   "the outgoing shift explicitly briefed this shift on pump A"
+observe permit_suspended   "a SUSPENDED permit-to-work for pump A has been found and read"
+observe permit_cleared     "a CLEARED permit-to-work for pump A has been found and read"
+observe blind_flange_seen  "a blind flange assembly has been observed on the PSV connections"
+
+# ─── the production situation ───────────────────────────────────────────────
+observe pump_b_failed      "the running condensate pump has failed and will not restart"
+observe level_high         "separator liquid level rising toward a total platform shutdown"
+
+channel separator_level "gas/liquid separator level" unit percent
+  range 0 100
+  stale_after 5s
+  flatline_after 10m epsilon 0.3
+  asserts level_high above 80.0 release 70.0
+
+# cbc warns that nothing reasons about `separator_level_unavailable` or `separator_level_flatline`. Both warnings are
+# left standing with their reasoning recorded rather than silenced.
+#
+# A separator transmitter that is dead or stuck can only mislead THIS casebook in one direction. `level_high` either
+# sticks on, which asserts production pressure and routes the decision to a person, or is absent, which removes the
+# production argument entirely and leaves the pump isolated. An urgent restart cannot be justified by a level nobody
+# can measure, and declining to justify it is the conservative answer.
+#
+# That is a property of this casebook's structure and not a general excuse. In the tank casebook a stuck level
+# transmitter IS the accident, which is why the identical warning is answered there by an explicit doubt that
+# discards the reading.
+
+# ─── the argument that was never made on the night ──────────────────────────
+# This is the whole casebook. It holds by default, and it is defeated ONLY by a positive act -- never by the
+# absence of a warning. An author who instead wrote "unknown unless a suspended permit was found" would have
+# encoded the night shift's reasoning exactly, and the compiler could not tell the difference, because that
+# casebook is well formed. What the machine CAN do is make the assumption visible in every witness it prints.
+claim work_status_unknown "nobody on this shift has established what was done to pump A"
+
+psv_certified    rebuts work_status_unknown
+walkdown_done    rebuts work_status_unknown
+handover_covered rebuts work_status_unknown
+
+# Positive evidence that the pressure boundary is open. Either of these alone is enough.
+claim boundary_open "pump A may have an open pressure boundary"
+  when any blind_flange_seen permit_suspended
+
+# Positive evidence that it is closed. Note this requires the CERTIFICATE, not merely a cleared permit: a permit
+# records that work was signed off, a certificate records that the valve is back and tested.
+claim boundary_closed "the pressure boundary on pump A is intact"
+  needs psv_certified
+
+boundary_open   rebuts boundary_closed
+permit_suspended rebuts boundary_closed
+
+# The hazard. Starting a pump whose pressure boundary nobody has confirmed.
+claim unverified_start "starting a pump whose pressure boundary has not been verified"
+  when any work_status_unknown boundary_open
+
+# ─── the pressure to start it anyway ───────────────────────────────────────
+# This argument is included because it is real, and because a casebook that omits it cannot explain why a competent
+# crew started the pump. Leaving it out would make the machine look wiser than the people it is meant to help.
+claim production_at_risk "the platform will trip if liquid levels are not brought down"
+  needs level_high
+
+claim restart_needed "the standby pump is the available means of reducing level"
+  needs production_at_risk pump_b_failed
+
+# ─── what to do ────────────────────────────────────────────────────────────
+# The correct action is not "refuse". It is to route the decision to the authority that can weigh a production trip
+# against an unverified pressure boundary -- which is a person, not a control room, and certainly not this machine.
+#
+# Note `when all` on start_pump_a. The first draft of this file said `when boundary_closed restart_needed`, meaning
+# "both", and a bare `when` list is a DISJUNCTION -- so it licensed starting the pump on production pressure alone,
+# with no certificate that the pressure boundary was closed. That is the Piper Alpha decision exactly, reproduced by
+# accident, in the casebook written to prevent it. The compiler accepted it because it was well formed; the
+# exhaustive invariant below is what caught it. `when` with several conditions now requires `any` or `all`.
+action monitor          idle
+action start_pump_a     when all boundary_closed restart_needed
+action escalate_to_oim  when all unverified_start restart_needed
+action keep_isolated    safe when unverified_start
+
+# Declared precedence, and this is the line that matters. On the night it lived in nobody's head in any explicit
+# form: a production imperative was weighed against a maintenance status nobody had checked, in a few minutes, at
+# shift handover. Here it is a reviewable line in a versioned document.
+#
+# `escalate_to_oim` outranks `keep_isolated` because escalating does not start anything -- the pump stays isolated
+# either way, and the difference is whether a person who can authorise the trip is told. Staying quietly isolated
+# while the platform drifts toward a shutdown nobody has been warned about is not the safer option; it is the same
+# information failure in the opposite direction.
+prefer escalate_to_oim over keep_isolated over start_pump_a over monitor

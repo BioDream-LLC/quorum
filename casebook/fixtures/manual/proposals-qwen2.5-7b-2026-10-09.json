@@ -1,0 +1,256 @@
+{
+ "note": "Real answers from a local model to quorum-studio draft's prompt on sump_pump_manual.txt, 2026-10-09: the first answer, then one answer per repair round. Replayed by the draft tests.",
+ "rounds": [
+  [
+   {
+    "kind": "observe",
+    "name": "high_water_float_closed",
+    "description": "high-water float switch closed",
+    "quote": "The high-water float switch closes when the water in the pit is above the high-water mark."
+   },
+   {
+    "kind": "observe",
+    "name": "current_on",
+    "description": "motor current relay closed",
+    "quote": "The motor current relay closes when the motor is drawing running current."
+   },
+   {
+    "kind:": "",
+    "observe": "flow_on",
+    "description": "discharge flow switch closed",
+    "quote": "The discharge flow switch closes when water is moving in the discharge pipe."
+   },
+   {
+    "kind": "claim",
+    "name": "pump_running",
+    "description": "pump should be running",
+    "needs": [
+     "high_water_float_closed",
+     "current_on"
+    ],
+    "quote": "When the high-water float switch is closed, the pump should be running."
+   },
+   {
+    "kind": "claim",
+    "name": "dry_run",
+    "description": "pump running dry or discharge blocked",
+    "needs": [
+     "current_on",
+     "flow_off"
+    ],
+    "quote": "If the motor current relay is closed and the discharge flow switch is not closed, the pump is running dry or the discharge is blocked."
+   },
+   {
+    "kind": "claim",
+    "name": "overheating",
+    "description": "motor overheated",
+    "severity": 7,
+    "needs": [
+     "current_on",
+     "thermal_switch_open"
+    ],
+    "quote": "If the thermal switch has opened, the motor is overheated and the pump must be stopped."
+   },
+   {
+    "kind": "excuse",
+    "name": "weekly_test",
+    "description": "discharge flow expected during test",
+    "needs": [
+     "high_water_float_closed",
+     "flow_off"
+    ],
+    "quote": "During the weekly test the operator runs the pump with the pit empty for up to one minute. While the weekly test is in progress, running with no discharge flow is expected and is not a fault."
+   },
+   {
+    "kind": "attack",
+    "from": "flow_on",
+    "attack": "rebuts",
+    "to": [
+     "dry_run"
+    ],
+    "quote": "Water cannot move in the discharge pipe unless the motor is drawing current. If the discharge flow switch is closed while the motor current relay is open, one of the two instruments is faulty and both must be inspected."
+   },
+   {
+    "kind": "action",
+    "name": "stop_pump",
+    "role": "safe",
+    "when": [
+     "overheating"
+    ],
+    "quote": "If the thermal switch has opened, the motor is overheated and the pump must be stopped."
+   },
+   {
+    "kind": "action",
+    "name": "keep_running",
+    "role": "idle",
+    "quote": "When the high-water float switch is open and no other signal is present, the pump is idle and no action is needed."
+   },
+   {
+    "kind": "prefer",
+    "order": [
+     "stop_pump",
+     "keep_running"
+    ],
+    "quote": "Stopping the pump takes priority over reporting to maintenance, and reporting to maintenance takes priority over normal running."
+   }
+  ],
+  [
+   {
+    "kind": "observe",
+    "name": "flow_off",
+    "description": "discharge flow switch not closed",
+    "quote": "The discharge flow switch closes when water is moving in the discharge pipe."
+   },
+   {
+    "kind": "claim",
+    "name": "dry_run",
+    "description": "pump running dry or discharge blocked",
+    "needs": [
+     "current_on",
+     "flow_off"
+    ],
+    "quote": "If the motor current relay is closed and the discharge flow switch is not closed, the pump is running dry or the discharge is blocked."
+   },
+   {
+    "kind": "claim",
+    "name": "overheating",
+    "description": "motor overheated",
+    "needs": [
+     "current_on",
+     "thermal_switch_open"
+    ],
+    "severity": 7,
+    "quote": "If the thermal switch has opened, the motor is overheated and the pump must be stopped."
+   },
+   {
+    "kind": "excuse",
+    "name": "weekly_test",
+    "description": "discharge flow expected during test",
+    "needs": [
+     "high_water_float_closed",
+     "flow_off"
+    ],
+    "quote": "During the weekly test the operator runs the pump with the pit empty for up to one minute. While the weekly test is in progress, running with no discharge flow is expected and is not a fault."
+   },
+   {
+    "kind": "attack",
+    "from": "flow_on",
+    "attack": "rebuts",
+    "to": [
+     "dry_run"
+    ],
+    "quote": "Water cannot move in the discharge pipe unless the motor is drawing current. If the discharge flow switch is closed while the motor current relay is open, one of the two instruments is faulty and both must be inspected."
+   },
+   {
+    "kind": "action",
+    "name": "stop_pump",
+    "when": [
+     "overheating"
+    ],
+    "role": "safe",
+    "quote": "If the thermal switch has opened, the motor is overheated and the pump must be stopped."
+   },
+   {
+    "kind": "action",
+    "name": "keep_running",
+    "role": "idle",
+    "quote": "When the high-water float switch is open and no other signal is present, the pump is idle and no action is needed."
+   },
+   {
+    "kind": "prefer",
+    "order": [
+     "stop_pump",
+     "keep_running"
+    ],
+    "quote": "Stopping the pump takes priority over reporting to maintenance, and reporting to maintenance takes priority over normal running."
+   }
+  ],
+  [
+   {
+    "kind": "observe",
+    "name": "flow_on",
+    "description": "discharge flow switch closed",
+    "quote": "The discharge flow switch closes when water is moving in the discharge pipe."
+   },
+   {
+    "kind": "claim",
+    "name": "overheating",
+    "description": "motor overheated",
+    "needs": [
+     "current_on",
+     "thermal_switch_open"
+    ],
+    "severity": 7,
+    "quote": "If the thermal switch has opened, the motor is overheated and the pump must be stopped."
+   },
+   {
+    "kind": "attack",
+    "from": "flow_off",
+    "attack": "rebuts",
+    "to": [
+     "dry_run"
+    ],
+    "quote": "Water cannot move in the discharge pipe unless the motor is drawing current. If the discharge flow switch is closed while the motor current relay is open, one of the two instruments is faulty and both must be inspected."
+   },
+   {
+    "kind": "action",
+    "name": "stop_pump",
+    "when": [
+     "overheating"
+    ],
+    "role": "safe",
+    "quote": "If the thermal switch has opened, the motor is overheated and the pump must be stopped."
+   },
+   {
+    "kind": "action",
+    "name": "keep_running",
+    "role": "idle",
+    "quote": "When the high-water float switch is open and no other signal is present, the pump is idle and no action is needed."
+   },
+   {
+    "kind": "prefer",
+    "order": [
+     "stop_pump",
+     "keep_running"
+    ],
+    "quote": "Stopping the pump takes priority over reporting to maintenance, and reporting to maintenance takes priority over normal running."
+   }
+  ],
+  [
+   {
+    "kind": "action",
+    "name": "keep_running",
+    "role": "idle",
+    "quote": "When the high-water float switch is open and no other signal is present, the pump is idle and no action is needed."
+   },
+   {
+    "kind": "claim",
+    "name": "overheating",
+    "description": "motor overheated",
+    "needs": [
+     "current_on",
+     "thermal_switch_open"
+    ],
+    "severity": 7,
+    "quote": "If the thermal switch has opened, the motor is overheated and the pump must be stopped."
+   },
+   {
+    "kind": "action",
+    "name": "stop_pump",
+    "when": [
+     "overheating"
+    ],
+    "role": "safe",
+    "quote": "If the thermal switch has opened, the motor is overheated and the pump must be stopped."
+   },
+   {
+    "kind": "prefer",
+    "order": [
+     "stop_pump",
+     "keep_running"
+    ],
+    "quote": "Stopping the pump takes priority over reporting to maintenance, and reporting to maintenance takes priority over normal running."
+   }
+  ]
+ ]
+}

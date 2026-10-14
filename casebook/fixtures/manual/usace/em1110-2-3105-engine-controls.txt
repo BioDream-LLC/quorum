@@ -1,0 +1,17 @@
+Excerpt from US Army Corps of Engineers EM 1110-2-3105, Mechanical and Electrical Design of Pumping Stations (30 March 1994, with changes 1 and 2), a work of the United States Government and in the public domain. Paragraphs 8-2b (engine control equipment), 8-4 (gear drives, one passage), 9-7 (pump bearing lubrication, one passage) and 9-8 (pump bearing temperature system, one passage). Text as extracted from the published PDF; only line breaks and page furniture were removed.
+
+8-2 b. Engine control equipment
+
+b. Control equipment. All engines will be designed for manual starting. Manual and automatic control devices should be of the types regularly furnished by the engine manufacturer for similar service. Automatic engine shutdown is required for engine overspeed. Visual and audible alarms and automatic engine shutdown (as a minimum) should occur for high jacket water temperature, high lubricating oil temperature, low lubricating oil pressure, gear reducer high lubricating oil temperature, or gear reducer low lubricating oil pressure. The type of speed control devices will depend upon the desired scheme of operation, but a governor to maintain speed and a suitable speed indicator should be provided in all cases. Consideration can be given to an engine shutoff method for low sump water elevation. Engine controls are generally located adjacent to the engine. Redundant remote read-out of critical engine, pump, and gear parameters may be located in an operating office for large pumping stations. The control system should be designed so that the engines can be started and operated when the electric power to the station is interrupted and automatic engine shutdown should not occur due to minor fluctuations in commercial power. A control system for engines less than 300 kW (400 HP) rating can be equipped with a rechargeable battery system for its operation. Larger sized engines will require a separate engine-generator to provide electrical power for the control system. The controls should permit operation of the engine’s jacket water pump to allow cool down of the engine if required by the engine manufacturer. If the jacket water pump is engine driven, then an auxiliary motor driven jacket water pump should be considered for cool down, if required. A means needs to be furnished to manually shutoff the intake air supply to the engine to provide for critical shutdown.
+
+8-4. Gear drives
+
+All gears should be equipped with a thrust-bearing temperature thermometer, an oil pressure gage and temperature thermometer, and oil level indicators. Automatic shutdown of the pumping unit and visual and audible alarms should be provided for high thrust-bearing temperature, high oil temperature, or low oil pressure.
+
+9-7. Pump bearing lubrication
+
+The lubrication system should be automatic with a control system that provides a prelube cycle before the pumps are allowed to start and an adjustable period between greasing cycles.
+
+9-8. Pump bearing temperature system
+
+The system should consist of resistance temperature detectors (RTD) mounted so that they are in contact with the bearing, and a monitoring system that allows display of individual bearing temperatures and alarms when preset high temperatures are exceeded.

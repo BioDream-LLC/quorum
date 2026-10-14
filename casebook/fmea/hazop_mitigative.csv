@@ -1,0 +1,3 @@
+Deviation,Cause,Consequence,Preventive Safeguards,Mitigative Safeguards,Action
+High level,LT-101 fails low,Overflow to bund,LAH-102 independent switch,Bund capacity 110%; foam system,None
+High pressure,Vent blocked,Vessel rupture,None,PSV-203 relief to flare,Inspect vent

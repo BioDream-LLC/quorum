@@ -1,0 +1,4 @@
+Deviation,Cause,Consequence,Safeguards
+High level,Valve XV-1 stuck open,Overflow,See note 4
+Low flow,Pump P-1 tripped,No feed,TBD pending review
+High temp,Cooler fouled,Damage,Independent TSH-301 trips heater; separate I/O

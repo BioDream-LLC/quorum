@@ -1,0 +1,146 @@
+casebook vessel-hl-trip-manual v1
+source "IEC 61511-1:2016 and ISA-TR84.00.02: a 2-out-of-3 voted high-level trip" dated 2026-09-22 by "quorum"
+note "REFERENCE COPY. Identical to vote.cb except that the two 2-of-3 conditions are written out by hand as"
+note "pair disjunctions instead of using `vote 2 of`. Kept so the sugar can be proved equal to the expansion over"
+note "all 512 states, rather than assumed equal. See casebook/vote/test_vote_equivalence.cpp."
+note ""
+note "Every safety instrumented function in process industry is built on redundancy, and 2oo3 voting is the"
+note "canonical arrangement -- three independent transmitters, trip when at least two agree. A PLC does that in"
+note "five rungs. What a PLC does not do is tell anybody WHICH transmitter to go and calibrate, or notice that the"
+note "voting has quietly degraded to a single point of failure. That is the part this casebook is for, and it is"
+note "the product's own thesis: a referee adjudicating claims that disagree."
+note ""
+note "Written to find out whether the language can express voting at all. It can, and the cost is visible below:"
+note "2oo3 takes three pair claims plus a disjunction, because the language has conjunction and disjunction but no"
+note "counting quantifier. Whether that is acceptable or wants a `vote 2 of` form is an ergonomics question the"
+note "state validation cannot answer."
+
+# ─── the three transmitters ─────────────────────────────────────────────────
+observe lt_a_high "transmitter A reads above the trip setpoint"
+observe lt_b_high "transmitter B reads above the trip setpoint"
+observe lt_c_high "transmitter C reads above the trip setpoint"
+
+channel lt_a "level transmitter A, independent tap and cable" unit pct
+  range 0 100
+  stale_after 2s
+  flatline_after 20m epsilon 0.2
+  asserts lt_a_high above 85.0 release 82.0
+
+channel lt_b "level transmitter B, independent tap and cable" unit pct
+  range 0 100
+  stale_after 2s
+  flatline_after 20m epsilon 0.2
+  asserts lt_b_high above 85.0 release 82.0
+
+channel lt_c "level transmitter C, independent tap and cable" unit pct
+  range 0 100
+  stale_after 2s
+  flatline_after 20m epsilon 0.2
+  asserts lt_c_high above 85.0 release 82.0
+
+# ─── 2 out of 3 ─────────────────────────────────────────────────────────────
+# The language has `needs` (conjunction) and `when any` (disjunction) but no counting quantifier, so "at least two of
+# three" is written as the disjunction of the three pairs. That is exact and it is verbose; it would be nine claims for
+# 2oo4 and the shape does not improve.
+claim pair_ab "A and B both above setpoint" needs lt_a_high lt_b_high
+claim pair_ac "A and C both above setpoint" needs lt_a_high lt_c_high
+claim pair_bc "B and C both above setpoint" needs lt_b_high lt_c_high
+
+claim level_high_voted "at least two of three transmitters are above the trip setpoint" severity 9
+  when any pair_ab pair_ac pair_bc
+
+# ─── which transmitter is lying ─────────────────────────────────────────────
+# The valuable half, and the half a voting block throws away. If two agree and the third does not, the third is the
+# one to go and look at. Absence is expressed as a rebuttal by the positive reading: if C is in fact high, that defeats
+# the suspicion of C directly.
+claim lt_c_disagrees "transmitter C reads low while A and B both read high" needs pair_ab
+lt_c_high rebuts lt_c_disagrees
+
+claim lt_b_disagrees "transmitter B reads low while A and C both read high" needs pair_ac
+lt_b_high rebuts lt_b_disagrees
+
+claim lt_a_disagrees "transmitter A reads low while B and C both read high" needs pair_bc
+lt_a_high rebuts lt_a_disagrees
+
+# ─── the other direction of discrepancy ─────────────────────────────────────
+# One transmitter reading HIGH while the other two read normal. Added after a mechanised check asked, for every
+# observation, what this casebook does when only that one thing is asserted -- and `lt_a_high` alone produced nothing.
+#
+# The claims above catch the dissenter that reads LOW (two agree high, one does not). This is the mirror case and it is
+# the more insidious of the two:
+#
+#   two high, one low   -> the trip fires, and the low leg is suspect. Loud, and already handled.
+#   one high, two low   -> NO trip fires, correctly, because 2oo3 exists to reject exactly this. And so nothing at all
+#                          happens, and a transmitter that is drifting or has failed high goes unnoticed until it drifts
+#                          further or a second leg fails and produces a spurious trip.
+#
+# That is a HIDDEN FAILURE in the RCM sense (TAXONOMY.md section 3): the absence of a symptom -- no trip -- is not evidence
+# that the instruments are healthy. It is also the CAPECO failure mode inverted: a transmitter reporting something
+# plausible and wrong.
+claim lt_a_deviates_high "transmitter A reads high while B and C read normal" needs lt_a_high
+lt_b_high rebuts lt_a_deviates_high
+lt_c_high rebuts lt_a_deviates_high
+
+claim lt_b_deviates_high "transmitter B reads high while A and C read normal" needs lt_b_high
+lt_a_high rebuts lt_b_deviates_high
+lt_c_high rebuts lt_b_deviates_high
+
+claim lt_c_deviates_high "transmitter C reads high while A and B read normal" needs lt_c_high
+lt_a_high rebuts lt_c_deviates_high
+lt_b_high rebuts lt_c_deviates_high
+
+claim a_transmitter_disagrees "one transmitter dissents from the other two, and it is the one to check"
+  when any lt_a_disagrees lt_b_disagrees lt_c_disagrees
+           lt_a_deviates_high lt_b_deviates_high lt_c_deviates_high
+
+# ─── a frozen transmitter is the dangerous failure ──────────────────────────
+# CAPECO again, in a voted system. A transmitter stuck at a plausible value still votes, so a frozen-high channel
+# holds the plant tripped and a frozen-low one silently removes a leg of the vote. Neither shows up as a fault on the
+# instrument itself, which is precisely why `flatline_after` exists.
+# Per LEG, not per symptom. The first version of this casebook had
+#
+#     claim leg_frozen when any lt_a_flatline lt_b_flatline lt_c_flatline
+#     claim leg_blind  when any lt_a_unavailable lt_b_unavailable lt_c_unavailable
+#     claim vote_collapsed needs leg_frozen leg_blind
+#
+# which READS as "two legs compromised" and MEANS "at least one leg frozen and at least one leg blind" -- satisfied by a
+# single transmitter that is both. It happens to be correct anyway, because the binding layer excludes a channel being
+# unavailable and flatlined at once, and cbc's own note says that exclusion "holds only where the integrator uses the
+# binding layer; a hand-supplied mask gets no such promise". So the safety argument rested on a downstream component,
+# invisibly, and an integrator feeding masks directly would have got a SIF that trips on one dead transmitter.
+#
+# Note what went wrong: "at least two of these three" appears twice in this casebook, and both times the natural-looking
+# shortcut is wrong. The language has no counting quantifier, so the correct form is the pair disjunction again.
+claim leg_a_compromised "voting leg A cannot be believed" when any lt_a_flatline lt_a_unavailable
+claim leg_b_compromised "voting leg B cannot be believed" when any lt_b_flatline lt_b_unavailable
+claim leg_c_compromised "voting leg C cannot be believed" when any lt_c_flatline lt_c_unavailable
+
+claim any_leg_compromised "at least one voting leg cannot be believed"
+  when any leg_a_compromised leg_b_compromised leg_c_compromised
+
+claim legs_ab_compromised "legs A and B are both compromised" needs leg_a_compromised leg_b_compromised
+claim legs_ac_compromised "legs A and C are both compromised" needs leg_a_compromised leg_c_compromised
+claim legs_bc_compromised "legs B and C are both compromised" needs leg_b_compromised leg_c_compromised
+
+# ─── the degradation nobody notices ─────────────────────────────────────────
+# IEC 61511 requires a declared response when redundancy is lost. Two legs compromised and 2oo3 is no longer 2oo3: it
+# is a single transmitter deciding whether the vessel overflows, which is not the architecture anyone signed off.
+claim vote_degraded "the voting architecture is no longer what was certified" severity 8
+  when any any_leg_compromised
+
+claim vote_collapsed "two legs are compromised; one transmitter is now deciding alone" severity 10
+  when any legs_ab_compromised legs_ac_compromised legs_bc_compromised
+
+# ─── actions ────────────────────────────────────────────────────────────────
+# The trip itself. Severity 9 on the voted claim and 10 on collapse, so a collapsed vote outranks a normal trip
+# decision: if the architecture is gone, stopping is not a judgement call.
+# Close the inlet valve and stop the transfer. Declared `safe`: the fallback is stated, never assumed, and a vessel
+# that can overflow stops filling.
+action trip       safe when any level_high_voted vote_collapsed
+
+# Leave the trip armed and raise a proof-test work order against the dissenting leg.
+action proof_test when any a_transmitter_disagrees vote_degraded
+
+action hold       idle
+
+prefer trip over proof_test over hold

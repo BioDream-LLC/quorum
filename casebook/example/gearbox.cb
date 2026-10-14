@@ -1,0 +1,74 @@
+casebook gearbox-demo v1
+source "AUTHORING.md worked example (illustrative, not a real asset)" dated 2026-09-22 by "quorum docs"
+note "A small but complete casebook: two instruments, one maintenance-override path, four actions."
+note "Deliberately illustrative rather than real -- it is here so the authoring guide cannot rot, since it is"
+note "compiled and validated over all 512 states as part of the test suite. Do not put it on a gearbox."
+note ""
+note "Read alongside AUTHORING.md. Section numbers below match the guide."
+
+# ─── §3 observations: what somebody or something can assert ─────────────────
+observe vibration_high   "gearbox casing velocity RMS in ISO 10816 zone C or worse"
+observe vibration_severe "casing velocity RMS in zone D -- damage accumulating now"
+observe oil_temp_high    "lubricant temperature above the design limit"
+observe load_increased   "duty was raised within the last hour"
+
+# Positive acts, not states of the world. See §7 -- these are the pattern that would have stopped Piper Alpha.
+observe overhaul_certified "gearbox overhaul signed off and the certificate is in hand"
+observe inspection_done    "this shift has physically inspected the gearbox"
+
+# ─── §5 channels: where thresholds live ────────────────────────────────────
+# Both channels generate <name>_unavailable for free, and vibration also generates a flatline detector. That brings
+# the total to 9 observations, so 2^9 = 512 states get validated.
+channel casing_vibration "gearbox casing velocity RMS, radial" unit mm/s
+  range 0 50
+  stale_after 5s
+  flatline_after 60m epsilon 0.05
+  asserts vibration_high   above 7.1  release 6.6
+  asserts vibration_severe above 11.0 release 10.5
+
+channel oil_temperature "lubricant temperature, sump" unit C
+  range -20 150
+  stale_after 30s
+  asserts oil_temp_high above 85.0 release 80.0
+
+# ─── §4 claims, and what defeats them ──────────────────────────────────────
+# Vibration in zone C means wear -- unless the duty was just raised, which explains higher vibration without any
+# deterioration. That is a REBUTTAL: the evidence was fine, the conclusion does not follow.
+claim gear_wear "gear tooth or bearing wear is progressing" needs vibration_high
+load_increased rebuts gear_wear
+
+# A recent certified overhaul undercuts the wear INFERENCE rather than the reading: the vibration is real, but a
+# progression argument cannot be made about a gearbox that was just rebuilt.
+overhaul_certified undercuts gear_wear
+
+# Disjunction, written explicitly. Any one symptom is enough to call the lubrication suspect -- including not being
+# able to measure the oil temperature at all. A dead thermocouple is not evidence that the oil is cool, and §7 is
+# emphatic about exactly this: if nothing reasoned about oil_temperature_unavailable, the compiler would warn, and it
+# would be right to. Treating the blind case as suspect costs a reduced load; the alternative costs a gearbox.
+claim lubrication_suspect "lubrication is not doing its job, or cannot be confirmed to be doing it"
+  when any oil_temp_high vibration_severe oil_temperature_unavailable
+
+# Conjunction over CLAIMS, not readings. Both have to hold.
+claim compound_damage "wear progressing while lubrication is failing" needs gear_wear lubrication_suspect
+
+# ─── §7 the habit that matters: default to not knowing ─────────────────────
+# This claim holds until somebody does something. It is defeated only by positive acts -- never by the absence of a
+# warning. Compare the WRONG form in the guide, which holds whenever nobody happened to say otherwise.
+claim condition_unestablished "nobody on this shift has established the gearbox's condition"
+overhaul_certified rebuts condition_unestablished
+inspection_done    rebuts condition_unestablished
+
+# And the blindness case. If the vibration channel is dead or stuck, the absence of a vibration reading is not
+# evidence that the gearbox is quiet. This is the argument the compiler warns you about if you leave it out.
+claim vibration_blind "no trustworthy vibration measurement exists"
+  when any casing_vibration_unavailable casing_vibration_flatline
+
+# Being blind while nobody has checked by hand is its own hazard, distinct from any diagnosis.
+claim unmonitored "running with neither an instrument nor an inspection" needs vibration_blind condition_unestablished
+
+# ─── §2 actions, with precedence in writing ────────────────────────────────
+action keep_running  idle
+action schedule_work when gear_wear
+action reduce_load   when any lubrication_suspect unmonitored
+action shut_down     safe when any compound_damage vibration_severe
+prefer shut_down over reduce_load over schedule_work over keep_running

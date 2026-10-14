@@ -1,0 +1,3 @@
+Item,Failure Mode,Effect,Cause,Severity,Detection
+Drive,Jerky movement,Imaging delayed,Motor control fault,7,8
+Drive,Unintended stop,Procedure aborted,Switch failure,8,7

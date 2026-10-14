@@ -1,0 +1,102 @@
+# Hand-written figures in README.md, and where each comes from.
+#
+# Numbers inside the <!-- BEGIN GENERATED --> regions are produced by tools/figures.sh and are not listed here. This file
+# covers the rest: figures that are narrative, historical, or cheaper to state than to generate.
+#
+# The rule is that a number in the README must be accountable to something. Sixteen of the twenty cells in the footprint
+# table were wrong -- including the headline, which advertised 2,640 bytes of flash for a safety function that had measured
+# 2,620 since the WCET speedup -- because nothing connected the prose to the tools. Every entry below carries the command
+# that reproduces it, so the next person to doubt one can check in a few seconds.
+#
+# Format:  <figure><TAB><what it is><TAB><how to reproduce>
+# Checked in both directions: an unregistered figure fails, and so does a registered figure that no longer appears.
+
+16,384	states in the pump casebook, 2^14 observations	./build/casebook/compiler/cbc casebook/pump/pump.cb | grep Decided
+50,432	two-tier containment checks: every advisory extension against the grounded labelling	./build/advisory/test_two_tier
+50,176	contested-state subtotal within those containment checks	./build/advisory/test_two_tier
+1,937	HISTORICAL. Agreements from the first, superseded cross-check against the separate ICCMA 2025 engine. Retained because the README's point is that it proved nothing: the ICCMA engine's semantics_reduct.cpp:133 IS the same worklist algorithm, so agreement showed shared-code consistency rather than correctness. That discovery is why the CaDiCaL check exists. Do not present as verification.	superseded by ./tools/cross-verify-exhaustive.sh
+
+# ── figures in docs/claims.tsv ────────────────────────────────────────────────
+#
+# The safety case had two stale figures of its own, which is why this section exists. The CaDiCaL call count still read
+# 2,252,288 after vote.cb gained three arguments. Worse, the witness reconstruction total still read 2,162,688 -- that is
+# 44 arguments times tank's 32,768 states, from before tank grew to 45 -- so the real figure was 2,195,456. The safety case
+# is checked against the test suite in both directions, and its NUMBERS were checked by nobody.
+
+1,024	states in the permit casebook, 2^10 observations	./build/casebook/compiler/cbc casebook/permit/permit.cb
+32,768	states in the tank casebook, 2^15 observations	./build/casebook/compiler/cbc casebook/tank/tank.cb
+50,688	total states across all four casebooks in the exhaustive independent check	./tools/cross-verify-exhaustive.sh
+2,253,824	total CaDiCaL calls in that check	./tools/cross-verify-exhaustive.sh
+2,195,456	witness reconstructions with zero truncations: 44x16,384 for pump plus 45x32,768 for tank	./build/casebook/compiler/test_bound
+131,072	verdict comparisons between a combined palette header and the separate casebooks	./build/casebook/compiler/test_palette_header
+33,554,432	palette non-interference over every state of pump and tank together, 2^25	./build/casebook/compiler/test_palette casebook/pump/pump.cb casebook/tank/tank.cb --full
+2,571	static worst-case instruction bound for the pump casebook on Cortex-M33	./build/wcet/test_static_bound
+2,864	flash bytes for the safety function on Cortex-M33	./tools/footprint.sh
+1,848	RAM bytes for the safety function, excluding the 2,048-byte stack	./tools/footprint.sh
+536,870,912	combined states of the pump + tank palette, 2^29, covered symbolically	./build/casebook/compiler/test_symbolic
+5,127	sampled palette states checked against the device solver	./build/casebook/compiler/test_symbolic
+49,152	guard pairs for the pump: 16,384 states x 3 proposals	./build/runtime/test_guard build/runtime/blob/pump/casebook.qcb
+46,326	pump guard pairs accepted	./build/runtime/test_guard build/runtime/blob/pump/casebook.qcb
+2,826	pump guard pairs replaced	./build/runtime/test_guard build/runtime/blob/pump/casebook.qcb
+41,728	tank guard pairs accepted	./build/runtime/test_guard build/runtime/blob/tank/casebook.qcb
+89,344	tank guard pairs replaced	./build/runtime/test_guard build/runtime/blob/tank/casebook.qcb
+
+# ── narrative figures: the wrong numbers, quoted on purpose ───────────────────
+#
+# These appear in README's account of why the figures gate exists. Two of them are values that were never correct, kept
+# because the story is the evidence that hand-copied numbers do not survive. Registering a wrong number looks odd until you
+# notice the alternative: describing the defect without naming it, which is how the defect survived in the first place.
+#
+# The gate caught these the moment they were written, which is the check working on the prose that describes the check.
+
+2,640	HISTORICAL, NEVER CORRECT. The flash figure the README advertised for the safety function. It measured 2,620 from the moment the WCET speedup landed; the front door was never updated. Quoted as the worked example of why this gate exists.	the true value: ./tools/footprint.sh
+2,620	HISTORICAL. The safety function's flash from the WCET speedup until 2026-10-09, when held thresholds (binding hold_ms and pending state) added 244 bytes; quoted in README's account of the 2,640 error	./tools/footprint.sh at commit 8baf2de
+2,357	HISTORICAL, NEVER CORRECT. The tank casebook's worst-case instruction bound as the README reported it. The real bound had risen to 2,412, so the README UNDER-reported a safety-relevant timing figure -- the worst direction for a stale number to be wrong in.	the true value: ./build/wcet/test_static_bound
+2,412	tank-409's static worst-case instruction bound on Cortex-M33, the value that replaced 2,357	./build/wcet/test_static_bound
+
+# ── casebook/AUTHORING.md and LANGUAGE.md ─────────────────────────────────────────────────────────────────
+# PROC-D5: these documents were outside gate 12 entirely until 2026-09-27. They are what an AUTHOR reads, so a
+# stale number here teaches a wrong lesson -- and the sweep that found 26 wrong figures in README never looked
+# at them. Every figure below was verified correct when the gate was extended; none was stale.
+16,298	pump.cb Decided states, plain	./build/casebook/compiler/cbc casebook/pump/pump.cb | grep Decided
+16,346	pump_severity.cb Decided states	./build/casebook/compiler/cbc casebook/pump/pump_severity.cb | grep Decided
+14,668	pump `continue` states, identical with and without severity	./build/casebook/compiler/cbc casebook/pump/pump.cb | grep continue
+7,776	tank.cb physically reachable states	./build/casebook/compiler/cbc casebook/tank/tank.cb | grep reachable
+3,003	C(15,5) -- `vote 5 of` fifteen sensors, past the 64 expansion cap	python3 -c "import math; print(math.comb(15,5))"
+
+# ── measured on real silicon: Arduino Uno R4 Minima, Renesas RA4M1, Cortex-M4 at 48 MHz ──────────────────
+# 2026-09-28. Counted with DWT CYCCNT on the worst-case state that cbc emits as kWorstCaseMask. These are the
+# first figures in this project taken from hardware rather than derived, and they are NOT reproducible by a
+# script alone -- they need the board. The command below stages and flashes it; the numbers come off the serial
+# port at 115200. Recorded here so that a figure nobody can account for cannot hide among them.
+3,608	solve, worst-case state, measured cycles on Cortex-M4 @ 48 MHz (75.2 us; 1.40 CPI against the 2,571 bound)	bash firmware/arduino/stage-portable.sh && see README "Measured" section
+13,646	full decide cycle (instantiate + solve + arbiter), measured cycles, same part (284.3 us)	bash firmware/arduino/stage-portable.sh && see README "Measured" section
+1,534	binding sample + mask over 4 channels, measured cycles, same part (32.0 us)	bash firmware/arduino/stage-portable.sh && see README "Measured" section
+
+# ── measured on real silicon: Raspberry Pi Pico 2, RP2350, Cortex-M33 at 150 MHz ─────────────────────────
+# Three runs, 2026-09-28/29. The core and clock the static bound was derived for. On this cached part the
+# slowest run moves between flashes while the fastest does not, so these are recorded per run, not as one number.
+2,809	solve fastest run, Pico 2 RP2350 Cortex-M33 @ 150 MHz, identical on every run (2,810 on one)	firmware/pico2: build in quorum-pico:1, copy the .uf2 to the RP2350 drive; raw capture in firmware/pico2/measured-2026-09-29.txt
+2,810	solve fastest run on the second of three Pico 2 runs	firmware/pico2: build in quorum-pico:1, copy the .uf2 to the RP2350 drive; raw capture in firmware/pico2/measured-2026-09-29.txt
+3,466	solve slowest run, Pico 2, first of three runs	firmware/pico2: build in quorum-pico:1, copy the .uf2 to the RP2350 drive; raw capture in firmware/pico2/measured-2026-09-29.txt
+3,719	solve slowest run, Pico 2, worst of three runs (24.8 us; 1.45 CPI against the 2,571 bound)	firmware/pico2: build in quorum-pico:1, copy the .uf2 to the RP2350 drive; raw capture in firmware/pico2/measured-2026-09-29.txt
+3,681	solve slowest run, Pico 2, third of three runs	firmware/pico2: build in quorum-pico:1, copy the .uf2 to the RP2350 drive; raw capture in firmware/pico2/measured-2026-09-29.txt
+10,975	pump full decide cycle fastest run, Pico 2, warm cache	firmware/pico2: build in quorum-pico:1, copy the .uf2 to the RP2350 drive; raw capture in firmware/pico2/measured-2026-09-29.txt
+15,223	pump full decide cycle slowest run, Pico 2, warm cache, worst of three runs (101.5 us)	firmware/pico2: build in quorum-pico:1, copy the .uf2 to the RP2350 drive; raw capture in firmware/pico2/measured-2026-09-29.txt
+21,746	pump full decide cycle, cold cache, slowest state in the 16,384-state sweep, worst of three runs (145.0 us)	firmware/pico2: build in quorum-pico:1, copy the .uf2 to the RP2350 drive; raw capture in firmware/pico2/measured-2026-09-29.txt
+10,401	tank full cycle with binding layer, fastest run, Pico 2	firmware/pico2: build in quorum-pico:1, copy the .uf2 to the RP2350 drive; raw capture in firmware/pico2/measured-2026-09-29.txt
+21,130	tank full cycle with binding layer, slowest run, Pico 2, worst of three runs (140.9 us)	firmware/pico2: build in quorum-pico:1, copy the .uf2 to the RP2350 drive; raw capture in firmware/pico2/measured-2026-09-29.txt
+
+# ── learning (learn/) ─────────────────────────────────────────────────────────────────────────────────────
+8,734	queries checked against the independent AA-CBR oracle: every query of 400 random casebases, both coherence policies, fixed seed	./build/learn/test_aacbr
+1,241	largest tic-tac-toe AA-CBR framework, attacks per query, at the nested-CV k	./build/learn/eval_learn tictactoe learn/data/tic-tac-toe.data
+1,131	AI4I v2: failures the 6 incomplete casebooks missed alone, n = 9000, pooled over 10 folds	./build/learn/eval_hybrid learn/data/ai4i2020.csv --quick --binding learned
+57,966	AI4I v2: normal records across the 6 incomplete conditions (6 x 9,661)	./build/learn/eval_hybrid learn/data/ai4i2020.csv --quick --binding learned
+9,000	discretisation test: records in the two-sided rare-failure band case	./build/learn/test_discretize
+1,504	states checked across the six learned MONK casebooks, compiled decision against learner	./build/learn/test_learned_casebook learn/data/monks build/learn/learned
+2,796	bytes in the pump casebook's runtime data image (cbc --blob)	./build/casebook/compiler/cbc casebook/pump/pump.cb --quiet --blob /tmp/p.qcb && wc -c /tmp/p.qcb
+25,727	worst cold instantiate+decide cycles, runtime firmware, pump image, Pico 2 at 150 MHz, 2026-10-01	firmware/pico2/measured-runtime-2026-10-01.txt
+18,240	worst cold instantiate+decide cycles, runtime sketch, pump image, Uno R4 at 48 MHz, 2026-10-01	firmware/arduino/measured-runtime-2026-10-01.txt
+31,288	worst cold cycles, palette image (pump + tank), tank member, Uno R4 at 48 MHz, 2026-10-01	firmware/arduino/measured-palette-2026-10-01.txt
+491,520	combined states swept by runtime_blob_palette: (2^14 + 2^15) x 10 settings of the other member	./build/runtime/test_palette_blob build/runtime/blob/palette/palette.qcb
+35,338	worst cold cycles, palette image (pump + tank), pump member, Pico 2 at 150 MHz, 2026-10-05	firmware/pico2/measured-palette-2026-10-05.txt

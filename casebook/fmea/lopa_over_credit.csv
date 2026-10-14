@@ -1,0 +1,11 @@
+# Two layers claiming more credit than their kind is allowed.
+#
+# IEC 61511 gives a basic process control system not designed to the standard a single risk reduction credit -- PFD
+# 0.1, no better. The first layer here claims 0.01 for a control loop, which is claiming certified behaviour from
+# uncertified equipment, and the second claims 0.001 for an operator responding to an alarm.
+#
+# Each order of magnitude claimed is an order of magnitude the total is understated by, and the total is the number
+# the whole document exists to produce.
+Initiating Cause,Frequency,IPL 1: BPCS control loop closes the inlet valve,IPL 2: Operator responds to the high level alarm per procedure,Mitigated Event Frequency,Target Risk Frequency
+Inlet line rupture from external corrosion,0.01,0.01,0.001,1.00E-07,1.00E-04
+Overfilling during batch charging,0.1,0.01,0.001,1.00E-06,

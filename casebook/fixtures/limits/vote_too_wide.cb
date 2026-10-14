@@ -1,0 +1,27 @@
+# DELIBERATELY OVER THE LIMIT. cbc must REFUSE this file.
+#
+# Generated fixture, kept because mutation testing proved the limit was untested: raising the vote expansion cap from 64 to 640
+# in lower.cpp left all 42 tests passing. The guard could have been loosened or deleted and nothing would have
+# noticed, which matters because past 31 observations the failure is SILENT -- binding's bit() returns 0 for any
+# observation index >= 32, so those observations would never assert and the device would answer confidently with
+# an incomplete picture of the world.
+casebook vote_too_wide v1
+source "generated fixture for the vote expansion cap" dated 2026-09-25 by "quorum"
+observe lt0 "transmitter 0 reads high"
+observe lt1 "transmitter 1 reads high"
+observe lt2 "transmitter 2 reads high"
+observe lt3 "transmitter 3 reads high"
+observe lt4 "transmitter 4 reads high"
+observe lt5 "transmitter 5 reads high"
+observe lt6 "transmitter 6 reads high"
+observe lt7 "transmitter 7 reads high"
+observe lt8 "transmitter 8 reads high"
+observe lt9 "transmitter 9 reads high"
+
+claim trip "five of ten transmitters agree" severity 9
+  vote 5 of lt0 lt1 lt2 lt3 lt4 lt5 lt6 lt7 lt8 lt9
+excuse proof_test "a proof test is running" needs lt0
+proof_test undercuts trip
+action shut safe when any trip
+action run idle
+prefer shut over run

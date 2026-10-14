@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 168 40" width="168" height="40" role="img" aria-label="Boards">
+  <title>Boards</title>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#b45309"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff" stop-opacity="0.30"/><stop offset="48%" stop-color="#fff" stop-opacity="0.06"/>
+      <stop offset="49%" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="sh" x="-12%" y="-12%" width="124%" height="150%">
+      <feDropShadow dx="0" dy="1.6" stdDeviation="1.8" flood-color="#0b1220" flood-opacity="0.32"/>
+    </filter>
+    <clipPath id="c"><rect x="2" y="2" width="164" height="34" rx="10"/></clipPath>
+  </defs>
+  <rect x="2" y="2" width="164" height="34" rx="10" fill="url(#g)" filter="url(#sh)"/>
+  <g clip-path="url(#c)"><rect x="2" y="2" width="164" height="34" fill="url(#sheen)"/></g>
+  <path d="M12 2.8 H156" stroke="#fff" stroke-opacity="0.42" stroke-width="1.1" fill="none"/>
+  <text x="84.0" y="25" text-anchor="middle" font-size="15" font-weight="700" fill="#fff"
+        font-family="system-ui, -apple-system, Segoe UI, sans-serif">Boards</text>
+</svg>

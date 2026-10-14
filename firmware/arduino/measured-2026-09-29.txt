@@ -1,0 +1,27 @@
+--- listener started ---
+
+quorum on Cortex-M Arduino -- worst-case execution time
+======================================================
+core clock            48000000
+casebook              centrifugal-pump v3
+arguments / attacks   44 / 66
+worst-case state      0x0  (140 steps, proven bound 248)
+
+cycle counter: DWT CYCCNT (32-bit)
+
+  solve                 min 3608  mean 3608  max 3608 cycles   75.166 us
+  FULL CYCLE            min 13646  mean 13646  max 13646 cycles   284.291 us
+  binding sample+mask   min 1496  mean 1533  max 1534 cycles   31.958 us
+
+  bound check (instructions vs cycles are DIFFERENT UNITS):
+  solve                 max cycles / 2571 bound instructions = 1.40 cycles per instruction -- AT OR UNDER the 2 CPI that README assumes
+
+  steps on device 140, predicted by cbc 140  MATCH
+  verdict         Decided -> continue
+
+  worst full cycle  285 us
+  max sustainable   3508 Hz
+
+These are cycles to adjudicate a casebook at its worst state, with nothing else running.
+They do not include reading real instruments, which on a slow bus will dominate them.
+done.

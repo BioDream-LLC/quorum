@@ -1,0 +1,59 @@
+casebook sump_pump_manual-draft v1
+source "sump_pump_manual.txt" dated 2026-10-10 by "drafted by qwen2.5:14b from the manual; not yet approved"
+note "UNAPPROVED DRAFT: written by a language model from sump_pump_manual.txt. Every declaration below cites the sentence"
+note "it came from. Check each against the manual, add what the manual does not say, then delete"
+note "this note to approve. quorum studio will not build a chip image while it is here."
+
+# manual: "The high-water float switch closes when the water in the pit is above the high-water mark."
+observe high_water_on "high-water float switch closed"
+
+# manual: "The motor current relay closes when the motor is drawing running current."
+observe current_on "motor current relay closed"
+
+# manual: "The discharge flow switch closes when water is moving in the discharge pipe."
+observe flow_on "discharge flow switch closed"
+
+# manual: "The thermal switch in the motor winding opens when the winding is overheated."
+observe thermal_off "thermal switch open"
+
+# manual: "The motor current relay closes when the motor is drawing running current."
+observe current_off "motor current relay open"
+
+# manual: "The pump controller reports four signals."
+observe controller_signals "pump controller reports four signals"
+
+# manual: "Water cannot move in the discharge pipe unless the motor is drawing current."
+implies flow_on current_on "Water cannot move in the discharge pipe unless the motor is drawing current."
+
+# manual: "If the high-water float switch is closed and the motor current relay is not closed, the pump has failed to start and the pit may overflow."
+claim failed_start "pump has failed to start and pit may overflow" needs high_water_on
+
+# manual: "If the motor current relay is closed and the discharge flow switch is not closed, the pump is running dry or the discharge is blocked."
+claim dry_run "pump running dry or discharge blocked" needs current_on
+
+# manual: "If the thermal switch has opened, the motor is overheated and the pump must be stopped."
+claim overheating "motor overheated" needs thermal_off
+
+# manual: "Running dry destroys the shaft seal within minutes, so the pump must be stopped."
+claim dry_run_hazardous "running dry destroys shaft seal within minutes" needs dry_run
+
+# manual: "If the discharge flow switch is closed while the motor current relay is open, one of the two instruments is faulty and both must be inspected."
+claim instruments_faulty "one of two instruments is faulty" needs flow_on
+
+# manual: "During the weekly test the operator runs the pump with the pit empty for up to one minute. While the weekly test is in progress, running with no discharge flow is expected and is not a fault."
+flow_on rebuts dry_run
+
+# manual: "When the high-water float switch is closed, the pump should be running. When the float switch is open and no other signal is present, the pump is idle and no action is needed."
+action keep_running idle
+
+# manual: "A pump that has failed to start must be reported to maintenance immediately."
+action report_failure when any failed_start
+
+# manual: "If the thermal switch has opened, the motor is overheated and the pump must be stopped."
+action stop_pump safe when any overheating dry_run
+
+# manual: "If the discharge flow switch is closed while the motor current relay is open, one of the two instruments is faulty and both must be inspected."
+action inspect_instruments when any instruments_faulty
+
+# manual: "Stopping the pump takes priority over reporting to maintenance, and reporting to maintenance takes priority over normal running."
+prefer stop_pump over report_failure over keep_running

@@ -1,0 +1,27 @@
+REVIEW -- what the checks cannot decide. Start here.
+
+draft as a whole:
+  PROBLEM  actions missing from the prefer order: keep_running, report_failure
+  PROBLEM  claim overheating: no action or attack uses it, so it can never change a decision
+
+rules to check first (a real quote does not mean a real rule):
+  FLAG     doubt instrument_faulty
+           its quote never mentions instrument_faulty: either the manual does not say this, or it says it in another sentence and this is the wrong citation
+           quote: "Water cannot move in the discharge pipe unless the motor is drawing current."
+  FLAG     excuse weekly_test_exception
+           its quote mentions flow_on, but the rule neither needs it nor is argued against by it: a condition in the sentence (often a 'not') may be missing
+           quote: "While the weekly test is in progress, running with no discharge flow is expected and is not a fault."
+  FLAG     claim failed_start
+           its quote mentions current_on, but the rule neither needs it nor is argued against by it: a condition in the sentence (often a 'not') may be missing
+           quote: "If the high-water float switch is closed and the motor current relay is not closed, the pump has failed to start and the pit may overflow."
+  FLAG     excuse weekly_test
+           its quote mentions flow_on, but the rule neither needs it nor is argued against by it: a condition in the sentence (often a 'not') may be missing
+           quote: "While the weekly test is in progress, running with no discharge flow is expected and is not a fault."
+
+manual sentences no rule cites (5 of 17). A missing rule is usually in here, but not
+always: a sentence cited for one rule can state another that is still missing.
+  - The pump controller reports four signals.
+  - When the high-water float switch is closed, the pump should be running.
+  - Running dry destroys the shaft seal within minutes, so the pump must be stopped.
+  - If the discharge flow switch is closed while the motor current relay is open, one of the two instruments is faulty and both must be inspected.
+  - Stopping the pump takes priority over reporting to maintenance, and reporting to maintenance takes priority over normal running.

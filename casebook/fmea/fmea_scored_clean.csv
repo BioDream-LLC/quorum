@@ -1,0 +1,17 @@
+# A scored FMEA this tool must stay SILENT on. CONSTRUCTED, like fmea_scored.csv.
+#
+# PROC-D4: every detector ships with a document it must fire on AND one it must not. Built to approach each check
+# without tripping it:
+#
+#   RPN ARITHMETIC   every stated RPN equals S x O x D exactly
+#   RANK INVERSION   RPN order and Action Priority order agree: the AP HIGH row also has the highest RPN
+#   NO ACTION        the one AP HIGH row carries a recommended action
+#
+# The inversion check is the delicate one. Line 14 is S=9 O=6 D=7, which is AP HIGH with RPN 378 -- the highest in
+# the file -- so no lower-RPN row can outrank it. Lower any of those three ratings and the row may stay HIGH while
+# dropping below line 15's RPN, at which point the check must fire. That is the boundary this file sits just inside.
+Item,Failure Mode,Effect,Cause,Severity,Occurrence,D,Detection Method,RPN,Recommended Action
+Steering column,Loss of assist,Steering effort rises sharply,Torque sensor drift,9,6,7,Assist current monitor,378,Add redundant torque sensor
+Door seal,Wind noise above 70mph,Customer complaint,Seal compression set,4,7,6,Road test,168,Revise seal durometer
+Paint,Orange peel texture,Cosmetic rework,Spray booth humidity,3,6,5,Visual inspection,90,Humidity interlock on booth
+Wiring clip,Loose retention,Harness chafe over time,Clip tab undersized,6,3,4,Assembly torque check,72,Revise clip tooling

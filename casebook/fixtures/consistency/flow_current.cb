@@ -1,0 +1,21 @@
+casebook flow-current-consistency v1
+source "quorum fixture: implies" dated 2026-10-09 by "quorum project"
+note "A pump cannot move water without drawing motor current. If the flow switch says it is, either the flow switch"
+note "is lying or the current channel is dead -- and a dead channel reads exactly like a quiet one."
+
+observe flow_high     "discharge flow above minimum"
+observe current_high  "motor current above no-load"
+observe level_low     "sump level low"
+observe priming       "operator is priming the pump"
+
+implies flow_high current_high "moving water draws motor current"
+
+claim dry_run   "pump running dry"                needs current_high level_low
+excuse priming_run "operator priming, dry running expected briefly" needs priming
+priming_run undercuts dry_run
+flow_high rebuts dry_run
+
+action continue idle
+action inspect  when mismatch__flow_high__current_high
+action shutdown safe when dry_run
+prefer shutdown over inspect over continue

@@ -1,0 +1,38 @@
+casebook + learning, replication -- the MONK's problems, official train/test split
+  MONK-1: 124 training rows (0 disagree with the documented concept), 432 test rows (0 disagree)
+  MONK-3: 122 training rows (6 disagree with the documented concept), 432 test rows (0 disagree)
+
+MONK-1 -- BALANCED ACCURACY, % on all 432
+  casebook knows                          casebook           learned  casebook+learned  casebook OR 1-NN    casebook OR NB              1-NN                NB
+  (none)                                     50.00             65.74             65.74             77.78             69.91             77.78             69.91
+  a1 = a2                                    83.33             65.74            100.00            100.00             83.33             77.78             69.91
+  a5 = 1                                     75.00             65.74             74.54             77.78             69.91             77.78             69.91
+  a1 = a2 + a5 = 1                          100.00             65.74            100.00            100.00             83.33             77.78             69.91
+  wrong answers (missed / false):
+  (none)                           casebook 216 /   0   learned  68 /  80   casebook+learned  68 /  80   k=8
+  a1 = a2                          casebook  72 /   0   learned  68 /  80   casebook+learned   0 /   0   k=2
+  a5 = 1                           casebook 108 /   0   learned  68 /  80   casebook+learned  32 /  78   k=10
+  a1 = a2 + a5 = 1                 casebook   0 /   0   learned  68 /  80   casebook+learned   0 /   0   k=2
+  complete casebook: casebook 100.00, casebook+learned 100.00
+
+MONK-3 -- BALANCED ACCURACY, % on all 432
+  casebook knows                          casebook           learned  casebook+learned  casebook OR 1-NN    casebook OR NB              1-NN                NB
+  (none)                                     50.00             97.37             97.37             97.37             97.37             97.37             97.37
+  a5 = 3 and a4 = 1                          57.89             97.37            100.00            100.00            100.00             97.37             97.37
+  a5 != 4 and a2 != 3                        97.37             97.37             97.37             97.37             97.37             97.37             97.37
+  a5 = 3 and a4 = 1 + a5 != 4 and a2 != 3            100.00             97.37             97.32            100.00            100.00             97.37             97.37
+  wrong answers (missed / false):
+  (none)                           casebook 228 /   0   learned  12 /   0   casebook+learned  12 /   0   k=6
+  a5 = 3 and a4 = 1                casebook 192 /   0   learned  12 /   0   casebook+learned   0 /   0   k=5
+  a5 != 4 and a2 != 3              casebook  12 /   0   learned  12 /   0   casebook+learned  12 /   0   k=2
+  a5 = 3 and a4 = 1 + a5 != 4 and a2 != 3   casebook   0 /   0   learned  12 /   0   casebook+learned  10 /   2   k=12
+  complete casebook: casebook 100.00, casebook+learned 97.32
+
+PRE-REGISTERED CRITERIA, v3 (learn/PREREGISTRATION.md)
+  1. learning improves the incomplete casebook: wins 2/4, mean gain +14.58 pts   FAIL
+  2. the casebook improves learning:            wins 3/4, mean gain +11.42 pts   FAIL
+  3. no harm with the complete casebook (both problems, limit 1 pt)              FAIL
+  4. invariants: 6912 AA-CBR queries, not total 0, over bound 0; largest 115 args, 139 attacks   PASS
+
+  VERDICT: learning makes an impactful difference to a casebook: NOT SHOWN
+  DEFECT: learning harms the complete casebook

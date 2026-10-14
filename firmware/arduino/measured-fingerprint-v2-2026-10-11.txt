@@ -1,0 +1,26 @@
+# Uno R4 Minima, 2026-10-11: the fingerprint now covers the idle and fallback actions and every binding setpoint.
+# Firmware and images built by studio/build.sh at the commit that adds this file.
+
+## pump image: new fingerprint, decisions unchanged (DEVICE and GUARD lines identical to 2026-10-09)
+=== quorum runtime on Arduino (report 0) ===
+core clock      48000000
+policy          OK
+cycle counter   DWT CYCCNT (32-bit)
+casebook        centrifugal-pump v3
+source          FMEA-PUMP-001 rev C
+arguments       44, attacks 66, observations 14
+image           OK, fingerprint 0x1a375f9d
+not Decided     86   construction faults 0
+steps           max 140, proven bound 248, WITHIN
+worst cycle     16796 cycles = 349.916 us (state 0x0, cold, instantiate+decide)
+DEVICE centrifugal-pump states 16384 asserts 1024 fnv1a 0xe5408b85
+GUARD centrifugal-pump pairs 49152 accepted 46326 replaced 2826 weaker 0 fnv1a 0xac18f721
+modbus          send any Modbus RTU request (slave 1) to switch to Modbus mode
+qmodbus info: board on COM3  map v1  fingerprint 0x1a375f9d  observations 14  members 1  channels 0
+
+## held-demo image with the bearing setpoint edited 90.0 -> 95.0 degC and the image CRC recomputed
+## (byte edit at the threshold record, blob offset 0x2c000 in the .bin). Before this change it would have loaded.
+=== quorum runtime on Arduino (report 0) ===
+NO CASEBOOK     fingerprint mismatch -- this device will not decide
+=== quorum runtime on Arduino (report 1) ===
+NO CASEBOOK     fingerprint mismatch -- this device will not decide

@@ -1,0 +1,5 @@
+HAZOP Study - Unit 200 Feed System - Rev 3,,,
+Facility: Example Refinery,Date: 2026-03-14,Chair: J. Smith,
+,,,
+Deviation,Cause,Consequence,Safeguards
+High level,LT-101 fails low,Overflow,None - LT-101 is the only measurement

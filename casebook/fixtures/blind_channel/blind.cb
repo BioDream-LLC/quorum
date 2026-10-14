@@ -1,0 +1,28 @@
+casebook blind v1
+source "fixture proving the _unavailable warning is load-bearing" dated 2026-09-25 by "quorum"
+note "DELIBERATELY DEFECTIVE. Nothing here reasons about lvl_unavailable, so cbc warns -- and this"
+note "fixture proves that warning corresponds to real lost safety rather than being advice."
+note ""
+note "Measured: tank at 90% (above the 85.0 trip), lvl_high LATCHED, then the transmitter goes stale."
+note "  healthy -> stop_transfer      the alarm is believed, the transfer stops"
+note "  stale   -> carry_on           the alarm vanished with the sensor and filling continues"
+note ""
+note "That is the CAPECO explosion: a level transmitter stops telling the truth and the absence of"
+note "an alarm is read as evidence of a safe level. tank.cb does reason about _unavailable and stays"
+note "at stop_transfer across the same transition, which is the comparison that makes this fixture"
+note "evidence rather than an anecdote. Do not 'fix' this file."
+observe lvl_high    "transmitter reports a high level"
+observe manual_high "operator reports high level"
+
+channel lvl "level transmitter" unit percent
+  range 0 100
+  stale_after 10s
+  asserts lvl_high above 85.0 release 80.0
+
+claim overfilling "the tank is overfilling" severity 9 needs lvl_high
+excuse drained "a drain is running" needs manual_high
+drained rebuts overfilling
+
+action stop_transfer safe when any overfilling
+action carry_on idle
+prefer stop_transfer over carry_on

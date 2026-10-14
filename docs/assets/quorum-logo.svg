@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 84 84" width="84" height="84" role="img" aria-label="quorum">
+  <title>quorum</title>
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1e293b"/><stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="ans" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2dd4bf"/><stop offset="100%" stop-color="#0f766e"/>
+    </linearGradient>
+    <filter id="sh" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2.2" flood-color="#0b1220" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <rect x="26" y="6" width="5" height="9" rx="1.5" fill="#94a3b8"/><rect x="26" y="69" width="5" height="9" rx="1.5" fill="#94a3b8"/><rect x="39" y="6" width="5" height="9" rx="1.5" fill="#94a3b8"/><rect x="39" y="69" width="5" height="9" rx="1.5" fill="#94a3b8"/><rect x="52" y="6" width="5" height="9" rx="1.5" fill="#94a3b8"/><rect x="52" y="69" width="5" height="9" rx="1.5" fill="#94a3b8"/>
+  <rect x="14" y="14" width="56" height="56" rx="10" fill="url(#body)" filter="url(#sh)"/>
+  <rect x="14.5" y="14.5" width="55" height="55" rx="9.5" fill="none" stroke="#fff" stroke-opacity="0.12"/>
+  <circle cx="2" cy="26" r="0" fill="none"/>
+  <path d="M6 28 L30 42 M6 42 L30 42 M6 56 L30 42" stroke="#a78bfa" stroke-width="3.2" stroke-linecap="round"/>
+  <circle cx="6" cy="28" r="4.2" fill="#38bdf8"/><circle cx="6" cy="42" r="4.2" fill="#fbbf24"/>
+  <circle cx="6" cy="56" r="4.2" fill="#a78bfa"/>
+  <circle cx="42" cy="42" r="10" fill="url(#ans)"/>
+  <path d="M37.2 42.4 l3.4 3.4 l6.4 -7" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round"
+        stroke-linejoin="round"/>
+  <path d="M52 42 H80" stroke="#2dd4bf" stroke-width="3.2" stroke-linecap="round"/>
+</svg>

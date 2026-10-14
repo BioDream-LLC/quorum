@@ -1,0 +1,27 @@
+# A scored FMEA with NO detection METHOD column -- only the D rating. CONSTRUCTED.
+#
+# This is the realistic "somebody emailed me their RPN spreadsheet" case, and it is the one that motivated running
+# the risk analysis before the refusal rather than after it.
+#
+# The two outcomes are both correct and they point in opposite directions:
+#
+#   the casebook is REFUSED    you cannot build an observation from a rating. A reading called "7" is not something
+#                              anyone can take. An earlier version of this importer did exactly that to a published
+#                              mobile X-ray FMEA, emitting observations named "3_abnormal" and reporting success.
+#
+#   the audit SUCCEEDS         those same ratings are precisely what the arithmetic needs. Refusing the file
+#                              outright, as this tool used to, threw the audit away with the casebook.
+#
+# Line 19 is an airbag squib failing to fire: S=10 O=4 D=2, Action Priority HIGH, RPN 80. Line 20 is a fuel union
+# weeping: S=9 O=3 D=6, Action Priority MEDIUM, RPN 162.
+#
+# By RPN the fuel weep outranks the airbag by a factor of two. By the standard's Action Priority the airbag is HIGH
+# and the weep is MEDIUM. And a study applying the RPN >= 100 threshold that appears in published FMEAs would have
+# filtered the airbag row out entirely, because 80 < 100 -- discarding the highest-priority row in the study.
+#
+# That is the whole argument against RPN thresholds in three rows, and the reason the 2019 handbook replaced the
+# number with a lookup table.
+Item,Failure Mode,Effect,Cause,Severity,Occurrence,Detection,RPN,Recommended Action
+Airbag squib,Fails to fire on impact,Occupant unrestrained in a crash,Connector corrosion,10,4,2,80,
+Fuel line,Weep at the union,Fire risk in the engine bay,Union under-torqued,9,3,6,162,Torque audit each shift
+Cabin vent,Reduced airflow,Discomfort only,Filter loading,2,7,3,42,Extend filter change interval

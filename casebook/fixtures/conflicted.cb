@@ -1,0 +1,30 @@
+casebook conflicted-fixture v1
+source "adversarial fixture for the Conflicted outcome (not a real asset)" dated 2026-09-22 by "quorum tests"
+note "This casebook is DELIBERATELY BROKEN and cbc must refuse it. Do not fix it."
+note ""
+note "Why it exists: `Conflicted` -- more than one action selected at once -- is tested at the arbiter level by"
+note "handing it two unattacked actions directly. That proves the arbiter classifies it. It does not prove that a"
+note "casebook an engineer could plausibly write can reach it, nor that the compiler catches it and says something"
+note "useful. Both real casebooks report Conflicted in 0 states, so neither can test this."
+note ""
+note "The mistake is realistic and small: two actions, each with a sensible condition, each ordered against the idle"
+note "action, and NOTHING ordering them against each other. When both conditions hold the framework has no grounds"
+note "to choose. An author who adds a third action to a working casebook and extends the prefer chain by one line"
+note "makes exactly this mistake."
+note ""
+note "It is the dangerous direction, too: 'open the valve' and 'close the valve' can both be In, and picking either"
+note "is a guess dressed as a decision. The arbiter returns the fallback instead, and the compiler refuses to emit."
+
+observe x "condition x asserted"
+observe y "condition y asserted"
+
+claim cx "x means the valve should open"  needs x
+claim cy "y means the valve should close" needs y
+
+action idle_act    idle
+action open_valve  when cx
+action close_valve safe when cy
+
+# The defect: open_valve and close_valve are each ordered above idle_act, and not against each other.
+prefer open_valve over idle_act
+prefer close_valve over idle_act

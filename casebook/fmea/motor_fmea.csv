@@ -1,0 +1,8 @@
+Item,Function,Failure Mode,Effect,Cause,Severity,Detection Method,Current Control
+Motor bearing,Support rotor,Bearing spalling,Rotor contact and catastrophic failure,Inadequate lubrication,8,Vibration monitoring,Monthly route-based readings
+Motor bearing,Support rotor,Bearing overheating,Lubricant breakdown then seizure,Overload or misalignment,7,Bearing RTD,Continuous DCS alarm
+Motor winding,Convert electrical to mechanical,Insulation degradation,Phase-to-earth fault and motor loss,Thermal cycling and moisture ingress,9,Winding temperature,Continuous DCS alarm
+Motor winding,Convert electrical to mechanical,Rotor bar cracking,Torque pulsation and reduced output,Frequent starts,6,Current signature analysis,Annual test
+Coupling,Transmit torque,Coupling wear,Misalignment then bearing damage,Normal wear,4,Vibration monitoring,Monthly route-based readings
+Cooling fan,Remove heat,Fan blockage,Winding overheating,Debris accumulation,7,Winding temperature,Continuous DCS alarm
+Terminal box,Contain connections,Loose connection,Arcing and single-phasing,Vibration loosening,8,Thermography,Annual survey

@@ -1,0 +1,17 @@
+REVIEW -- what the checks cannot decide. Start here.
+
+draft as a whole: no structural problems found
+
+rules to check first (a real quote does not mean a real rule):
+  FLAG     attack flow_on undercuts failed_start
+           its quote never mentions flow_on: either the manual does not say this, or it says it in another sentence and this is the wrong citation
+           quote: "If the high-water float switch is closed and the motor current relay is not closed, the pump has failed to start and the pit may overflow."
+  FLAG     claim failed_start
+           its quote mentions current_on, but the rule neither needs it nor is argued against by it: a condition in the sentence (often a 'not') may be missing
+           quote: "If the high-water float switch is closed and the motor current relay is not closed, the pump has failed to start and the pit may overflow."
+
+manual sentences no rule cites (3 of 17). A missing rule is usually in here, but not
+always: a sentence cited for one rule can state another that is still missing.
+  - The pump controller reports four signals.
+  - Running dry destroys the shaft seal within minutes, so the pump must be stopped.
+  - If the discharge flow switch is closed while the motor current relay is open, one of the two instruments is faulty and both must be inspected.

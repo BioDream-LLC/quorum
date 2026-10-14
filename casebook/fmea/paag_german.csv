@@ -1,0 +1,19 @@
+# German PAAG worksheet -- the German-speaking world's name for a HAZOP.
+#
+# PAAG = Prognose, Auffinden der Ursache, Abschätzen der Auswirkungen, Gegenmaßnahmen. Different method
+# name, entirely different column words. Confirmed from German process-safety sources, not guessed.
+#
+# WHY IT IS HERE: DOC-A9 in docs/assumptions.tsv predicted a non-English worksheet would be reported CLEAN,
+# because every safeguard keyword list is English. That prediction turned out to be ALREADY MITIGATED -- the
+# Guard::Unclassified fix made hours earlier for DOC-A16 reports unreadable text instead of waving it through.
+#
+# But two real gaps remained, and the first is a SEVERITY UNDER-REPORT:
+#   "keine" means nothing protects this. It was read as unclassifiable prose, not as UNPROTECTED.
+#   "noch festzulegen" means nobody has decided. It was not recognised as a deferral.
+#
+# Europe is the stated market for this tool, so a PAAG worksheet parsing but yielding nothing useful is a
+# product failure rather than a cosmetic one.
+Abweichung,Ursache,Auswirkung,Gegenmaßnahmen,Maßnahmen
+Höherer Druck,Magnetventil defekt,Brand und Explosion,Sichtprüfung - geräteeigener Alarm,Teile ersetzen
+Höhere Temperatur,Lüfter ausgefallen,Schäden am Verdichter,Sichtprüfung,Lüfter prüfen
+Kein Durchfluss,Pumpe P-1 ausgefallen,Keine Einspeisung,keine,LSH-202 nachrüsten

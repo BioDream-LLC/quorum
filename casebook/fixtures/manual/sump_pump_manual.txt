@@ -1,0 +1,30 @@
+SP-200 Submersible Sump Pump -- Operation and Maintenance Manual (quorum test fixture, written for this project)
+
+1. Instruments
+The pump controller reports four signals. The high-water float switch closes when the water in the pit is above the
+high-water mark. The motor current relay closes when the motor is drawing running current. The discharge flow switch
+closes when water is moving in the discharge pipe. The thermal switch in the motor winding opens when the winding is
+overheated.
+
+2. Normal operation
+When the high-water float switch is closed, the pump should be running. When the float switch is open and no other
+signal is present, the pump is idle and no action is needed.
+
+3. Faults
+If the high-water float switch is closed and the motor current relay is not closed, the pump has failed to start and
+the pit may overflow. A pump that has failed to start must be reported to maintenance immediately.
+If the motor current relay is closed and the discharge flow switch is not closed, the pump is running dry or the
+discharge is blocked. Running dry destroys the shaft seal within minutes, so the pump must be stopped.
+If the thermal switch has opened, the motor is overheated and the pump must be stopped.
+
+4. Exceptions
+During the weekly test the operator runs the pump with the pit empty for up to one minute. While the weekly test is in
+progress, running with no discharge flow is expected and is not a fault.
+
+5. Instrument checks
+Water cannot move in the discharge pipe unless the motor is drawing current. If the discharge flow switch is closed
+while the motor current relay is open, one of the two instruments is faulty and both must be inspected.
+
+6. Priorities
+Stopping the pump takes priority over reporting to maintenance, and reporting to maintenance takes priority over
+normal running.
