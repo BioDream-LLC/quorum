@@ -22,6 +22,12 @@ const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) process
   await p.keyboard.press('Escape');
   await p.click('#check'); await p.waitForSelector('#verdict.ok', { timeout: 60000 });
   ok(true, 'consistently renamed casebook still passes');
+  ok(!(await p.isDisabled('#sheetbtn')), 'a passing rulebook has a commissioning sheet');
+  const sheet = await p.evaluate(async () => (await fetch(document.getElementById('sheetdl').href)).text());
+  ok(sheet.includes('Commissioning sheet') && (sheet.match(/<tr><td>/g) || []).length === 14, 'the sheet lists all 14 pump readings');
+  await p.fill('#benchport', '/dev/nonexistent-quorum-port'); await p.click('#benchbtn');
+  await p.waitForFunction(() => /cannot open/.test(document.getElementById('benchout').textContent));
+  ok(true, 'a board test on a missing port says so: ' + (await p.textContent('#benchout')).slice(0, 60));
   await p.screenshot({ path: '/tmp/qs/1-pass.png', fullPage: true });
   // break it on a known line
   await p.evaluate(() => { const s = document.getElementById('src'); s.focus(); s.setSelectionRange(s.value.length, s.value.length); });
@@ -68,6 +74,7 @@ const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) process
   await p.selectOption('#extraex', 'tank.cb'); await p.waitForSelector('#extras button');
   await p.click('#check'); await p.waitForSelector('#verdict.ok', { timeout: 60000 });
   const sw = await p.textContent('#sweep');
+  ok(await p.isDisabled('#sheetbtn'), 'a palette has no single commissioning sheet');
   ok(sw.includes('DEVICE centrifugal-pump states 16384 asserts 1024 fnv1a 0xe5408b85') && sw.includes('DEVICE tank-409 states 32768 asserts 7680 fnv1a 0x90bc4385'), 'palette: both members, each as alone');
   await p.click('#extras button'); ok(await p.textContent('#extras') === 'nothing else', 'remove a casebook from the chip');
   // learning from records
@@ -125,6 +132,20 @@ const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) process
   await p.click('#check'); await p.waitForSelector('#verdict.ok', { timeout: 60000 });
   ok(true, 'the approved draft passes the full check and yields an image');
   await p.screenshot({ path: '/tmp/qs-draft.png', fullPage: true });
+  // a rulebook nothing can argue with: refused, the repair is offered, and the repaired text passes
+  await p.fill('#src', ['casebook plain v1', 'source "a regulation" dated 2026-10-14 by "tests"',
+    'observe overspeed "engine overspeed"', 'observe oil_low "lube oil pressure low"',
+    'claim overspeed_fault "overspeed" needs overspeed', 'claim oil_alarm "low oil pressure" needs oil_low',
+    'action keep_running idle', 'action raise_alarm when oil_alarm', 'action shut_down safe when overspeed_fault',
+    'prefer shut_down over raise_alarm over keep_running', ''].join('\n'));
+  await p.click('#check'); await p.waitForSelector('#verdict.no', { timeout: 60000 });
+  ok(await p.isVisible('#fixsensors'), 'unarguable rulebook: the failed-sensor repair is offered');
+  await p.click('#fixsensors'); await p.waitForFunction(() => document.getElementById('src').value.includes('overspeed_failed'));
+  ok(/2 places? marked TODO/.test(await p.textContent('#todocount')) && !(await p.isVisible('#fixsensors')),
+     'the repair is in the editor, one TODO per reading: ' + await p.textContent('#todocount'));
+  await p.click('#check'); await p.waitForSelector('#verdict.ok', { timeout: 60000 });
+  ok(true, 'the repaired rulebook passes');
+  await p.screenshot({ path: '/tmp/qs/6-repair.png', fullPage: true });
   fake.close();
   ok(errs.length === 0, 'no page errors ' + errs.join(' | '));
   await b.close();

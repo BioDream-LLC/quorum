@@ -100,3 +100,6 @@
 31,288	worst cold cycles, palette image (pump + tank), tank member, Uno R4 at 48 MHz, 2026-10-01	firmware/arduino/measured-palette-2026-10-01.txt
 491,520	combined states swept by runtime_blob_palette: (2^14 + 2^15) x 10 settings of the other member	./build/runtime/test_palette_blob build/runtime/blob/palette/palette.qcb
 35,338	worst cold cycles, palette image (pump + tank), pump member, Pico 2 at 150 MHz, 2026-10-05	firmware/pico2/measured-palette-2026-10-05.txt
+3,000	random rulebooks compared by refcheck after the 2026-10-14 fix, seeds 1-6, 500 each	for s in 1 2 3 4 5 6; do python3 tools/refcheck.py build/casebook/compiler/cbc --fuzz 500 $s; done
+510,000	states in those 3,000 random rulebooks (510,360), rounded	same command; sum the 'compared over N states' figures
+262,144	states in the 18-reading synthetic rulebook used by compiler_threads_same, 2^18	./build/casebook/compiler/cbc casebook/fixtures/scale/scale18.cb | grep "states to validate"

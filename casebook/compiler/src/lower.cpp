@@ -338,6 +338,33 @@ Lowered lower(const Casebook& cb, Diagnostics& diag) {
             if (std::find(p.needs.begin(), p.needs.end(), u) != p.needs.end()) { split.insert(u); }
         }
     }
+    // And whenever a reading that something discards is also read RAW by a doubt (its needs or when) or by a
+    // consistency doubt's `unless`. Without the split the discarding attack lands on the raw reading itself, so
+    // every doubt that promised to read it raw would see the discarded value instead -- and whether it did depended
+    // on whether some unrelated doubt happened to need and undermine the same reading, and on whether `undermines`
+    // was written in the doubt's declaration or on its own line. Found 2026-10-14 by tools/refcheck.py, a second
+    // implementation written from the documentation: on random rulebooks a doubt that discarded the consequent of
+    // an `implies` made the mismatch fire and the safe action go unchosen. Readings no doubt reads raw are not
+    // split, so every rulebook without that shape lowers exactly as before.
+    {
+        std::set<std::string> undermined;
+        for (const Presumption& p : presumptions) {
+            undermined.insert(p.undermines.begin(), p.undermines.end());
+        }
+        for (const AttackDecl& a : cb.attacks) {
+            if (a.kind == AttackKind::Undermines) { undermined.insert(a.to.begin(), a.to.end()); }
+        }
+        for (const Presumption& p : presumptions) {
+            std::vector<std::string> raw = p.unless;
+            if (p.kind == PresumptionKind::Doubt) {
+                raw.insert(raw.end(), p.needs.begin(), p.needs.end());
+                raw.insert(raw.end(), p.when.begin(), p.when.end());
+            }
+            for (const std::string& r : raw) {
+                if (undermined.count(r) != 0) { split.insert(r); }
+            }
+        }
+    }
 
     // ── Step 4: lay out arguments. Observations must be a contiguous prefix. ─
     auto add = [&lo](std::string name, std::string desc, Role role, bool generated,
@@ -595,7 +622,11 @@ Lowered lower(const Casebook& cb, Diagnostics& diag) {
         // outranked by a more serious one.
         const bool pref_dependent = a.kind != AttackKind::Undercuts;
         for (const std::string& t : a.to) {
-            edge(from, idx[t], std::string(a.from) + " " + attack_kind_name(a.kind) + " " + t, pref_dependent);
+            // A discarding attack on a split reading lands on its usable claim, as a doubt's own `undermines` does.
+            const bool via_usable = a.kind == AttackKind::Undermines && usable.count(t) != 0;
+            edge(from, via_usable ? usable[t] : idx[t],
+                 std::string(a.from) + " " + attack_kind_name(a.kind) + " " + t + (via_usable ? " (via its usable claim)" : ""),
+                 pref_dependent);
         }
     }
 
@@ -746,7 +777,10 @@ void check(const Lowered& lo, Diagnostics& diag) {
     } else if (lo.observation_count > 20) {
         diag.warn(line, std::to_string(lo.observation_count) + " observations means " +
                             std::to_string(1L << lo.observation_count) +
-                            " states; exhaustive validation will be slow. `cbc --symbolic` checks every state at once");
+                            " states; exhaustive validation takes about " +
+                            std::to_string(1L + (1L << lo.observation_count) / 600000L / 8L) +
+                            " s on an 8-thread PC, and doubles with each reading. `cbc --symbolic` checks the main " +
+                            "invariants of every state at once");
     }
 
     // A gate with no attacker can never fall, so whatever it gates is dead. A gate that attacks nothing is waste.

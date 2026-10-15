@@ -24,6 +24,8 @@ import (
 	"strings"
 	"sync"
 
+	"quorum/studio/internal/bench"
+	"quorum/studio/internal/fix"
 	"quorum/studio/internal/pipeline"
 )
 
@@ -34,6 +36,8 @@ type image struct {
 	name  string
 	board string
 	uf2   []byte // the programming file: a UF2 for the Pico 2, a flat .bin for the Uno R4
+	sheet string // cbc's commissioning sheet; empty for a palette
+	src   string // the rulebook's file name, printed on the sheet
 }
 
 // Server is one running studio.
@@ -90,12 +94,15 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/import", s.importWorksheet)
 	mux.HandleFunc("POST /api/check", s.check)
 	mux.HandleFunc("POST /api/learn", s.learn)
+	mux.HandleFunc("POST /api/fix/sensors", s.fixSensors)
 	mux.HandleFunc("POST /api/draft", s.draftStart)
 	mux.HandleFunc("GET /api/draft/{id}", s.draftStatus)
 	mux.HandleFunc("POST /api/draft/{id}/cancel", s.draftCancel)
 	mux.HandleFunc("POST /api/approve", s.draftApprove)
 	mux.HandleFunc("GET /api/download/{id}", s.download)
 	mux.HandleFunc("POST /api/flash/{id}", s.flash)
+	mux.HandleFunc("GET /api/sheet/{id}", s.sheet)
+	mux.HandleFunc("POST /api/bench/{id}", s.bench)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !s.authorised(r) {
 			http.Error(w, "forbidden", http.StatusForbidden)
@@ -199,6 +206,9 @@ func (s *Server) check(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp := map[string]any{"ok": c.OK, "output": c.Output, "info": c.Info, "sweep": c.Sweep}
+	if !c.OK && strings.Contains(c.Output, fix.Refusal) && len(req.Extras) == 0 {
+		resp["fix"] = "sensors" // the page offers the one-click repair
+	}
 	if c.OK {
 		board := req.Board
 		if board == "" {
@@ -214,13 +224,87 @@ func (s *Server) check(w http.ResponseWriter, r *http.Request) {
 		key := hex.EncodeToString(id)
 		name := pipeline.CasebookName(req.Name) + "-" + board + pipeline.Extension(board)
 		s.mu.Lock()
-		s.images[key] = image{name: name, board: board, uf2: u}
+		s.images[key] = image{name: name, board: board, uf2: u, sheet: c.Sheet, src: req.Name}
 		s.mu.Unlock()
 		resp["image"] = key
 		resp["file"] = name
 		resp["bytes"] = len(u)
+		resp["sheet"] = c.Sheet != ""
 	}
 	writeJSON(w, resp)
+}
+
+// fixSensors answers cbc's refusal of a rulebook nothing can argue with: it returns the source with a failed-sensor
+// check for each reading, every one marked TODO for the engineer. Nothing is saved or checked here; the page puts the
+// text in the editor and the person checks it again.
+func (s *Server) fixSensors(w http.ResponseWriter, r *http.Request) {
+	var req struct{ Source string }
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		fail(w, http.StatusBadRequest, err)
+		return
+	}
+	res, err := fix.SensorChecks(req.Source)
+	if err != nil {
+		fail(w, http.StatusUnprocessableEntity, err)
+		return
+	}
+	writeJSON(w, res)
+}
+
+// sheetOf parses the commissioning sheet of a checked image.
+func (s *Server) sheetOf(w http.ResponseWriter, id string) (image, bench.Sheet, bool) {
+	im, ok := s.lookup(id)
+	if !ok {
+		fail(w, http.StatusNotFound, errors.New("no such image"))
+		return im, bench.Sheet{}, false
+	}
+	if im.sheet == "" {
+		fail(w, http.StatusUnprocessableEntity, errors.New("several casebooks share this chip: check each on its own "+
+			"for its commissioning sheet"))
+		return im, bench.Sheet{}, false
+	}
+	sh, err := bench.Parse(im.sheet)
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err)
+		return im, bench.Sheet{}, false
+	}
+	return im, sh, true
+}
+
+// sheet serves the printable loop-check sheet for the real plant.
+func (s *Server) sheet(w http.ResponseWriter, r *http.Request) {
+	im, sh, ok := s.sheetOf(w, r.PathValue("id"))
+	if !ok {
+		return
+	}
+	name := pipeline.CasebookName(im.src) + "-commissioning.html"
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", name))
+	_, _ = w.Write([]byte(sh.HTML(filepath.Base(im.src))))
+}
+
+// bench drives a board on a serial port through the sheet over Modbus and reports each answer.
+func (s *Server) bench(w http.ResponseWriter, r *http.Request) {
+	var req struct{ Port string }
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		fail(w, http.StatusBadRequest, err)
+		return
+	}
+	req.Port = strings.TrimSpace(req.Port)
+	if req.Port == "" {
+		fail(w, http.StatusBadRequest, errors.New("give the board's serial port, for example COM4 or /dev/ttyACM0"))
+		return
+	}
+	_, sh, ok := s.sheetOf(w, r.PathValue("id"))
+	if !ok {
+		return
+	}
+	res, err := bench.Run(r.Context(), req.Port, sh)
+	if err != nil {
+		fail(w, http.StatusUnprocessableEntity, err)
+		return
+	}
+	writeJSON(w, res)
 }
 
 func (s *Server) lookup(id string) (image, bool) {

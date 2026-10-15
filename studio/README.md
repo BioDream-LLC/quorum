@@ -7,8 +7,10 @@ same programs the C++ test suite runs, plus the prebuilt runtime firmware for ea
 
 ## Build
 
-Everything runs in Docker, and one command builds it all: `studio/build.sh`. It needs the Docker image
-`quorum-pico:1` and the Pico SDK at `$PICO_SDK_PATH` (default `~/pico-sdk`); it builds `quorum-arduino:1` itself.
+Everything runs in Docker, and one command builds it all: `studio/build.sh`. It needs only Docker, git and bash. It
+makes its images (`quorum-pico:1`, `quorum-arduino:1`, `quorum-studio-build:1`) from the Dockerfiles in the repository,
+uses the Pico SDK at `$PICO_SDK_PATH` or `~/pico-sdk` if there is one, and otherwise fetches release 2.1.1 into
+`build/pico-sdk`.
 
 ```
 studio/build.sh     # 1. firmware/pico2/build-runtime.sh     -> build/quorum_runtime.uf2
@@ -49,8 +51,40 @@ UNO R4 board package installs; the studio does not ship dfu-util.
 
 `quorum-studio` opens the browser. On a Mac, a Pico 2 in BOOTSEL mode is found under `/Volumes`, and for an Uno R4
 the studio uses the dfu-util that the Arduino IDE installs in `~/Library/Arduino15`. `quorum-studio --no-browser` only prints the address.
-`quorum-studio image pump.cb [-board unor4] [-with tank.cb] [-o out]` and `quorum-studio import hazop sheet.csv`
-work without a browser.
+`quorum-studio image pump.cb [-board unor4] [-with tank.cb] [-o out]`, `quorum-studio import hazop sheet.csv`,
+`quorum-studio sheet pump.cb` and `quorum-studio bench pump.cb -port COM4` work without a browser.
+
+## Commissioning: the check proves the rules, not the wiring
+
+Checking every situation proves what the rules do. It cannot prove that the wire labelled "overspeed" is the overspeed
+switch, that a threshold is set where the document says, or that the controller passes each reading on. On a plant
+that is the loop check, and the studio prints the sheet for it.
+
+- **Commissioning sheet** (after a passing check, or `quorum-studio sheet pump.cb`): one line per reading, giving
+  how it is set, the action quorum must report when it is set alone, and, when it changes nothing alone, the fewest
+  other readings with which it does, with the action with and without it. There are columns for what was seen and
+  who saw it, and the image fingerprint the board must report. It comes from `cbc --commissioning`.
+- **Test the board** (or `quorum-studio bench pump.cb -port COM4`) drives a board over Modbus, the way a PLC would,
+  through every line of the sheet: at rest, each reading alone, and each with the readings that make it matter. It
+  compares each answer and refuses a board running a different image. It covers rulebooks without raw channels. A
+  channel's readings come from samples that a controller must keep writing, so those are left to the sheet.
+  Measured on a Pico 2 with the pump image: 41 of 41 states as the sheet says.
+- The bench test checks the board, not the plant. Only the sheet, worked through on the real machine, checks the
+  wiring.
+
+## A rulebook nothing can argue with
+
+cbc refuses a rulebook in which no claim can be argued against. A worksheet import or a regulation with no
+exceptions produces exactly that, and such a rulebook cannot tell a dead sensor from a quiet machine. After that
+refusal the studio offers **Add a failed-sensor check for each reading**. For each plain reading a claim relies on, it
+adds:
+- a reading for its instrument having failed;
+- a doubt that undercuts the claims drawn from it while that is set;
+- a claim that takes the response the reading itself led to (the highest-ranked one, so a dead shutdown sensor still
+  shuts down).
+
+Each block is marked TODO and shown in the editor; nothing is applied silently. Each added reading doubles the
+number of situations to check.
 
 ## Drafting a rulebook from a manual
 
@@ -83,5 +117,10 @@ With Claude Sonnet 5.5:
 - A US Army Corps standard: 12 of 12 in 10 runs, after the drafter was taught alarm-only and start rules on that
   same standard.
 - A Coast Guard regulation it had never seen: all 6 rules in 8 of 8 runs.
+- A fairer test: four more unseen regulations, with the answer key and scorer committed before any run, and five
+  runs each. It scored 116 of 135 behavioural checks (86%). Shutdown versus alarm only was right in every case. It
+  missed a manual shutdown device (4 of 5 runs) and a monitoring exception (4 of 5), and it drafted design rules as
+  run-time rules. cbc accepted 9 of 20 drafts as written, and 14 after the failed-sensor repair. Details, including
+  one scorer bug fixed after the runs: `casebook/fixtures/manual/eval/RESULTS.md`.
 
 These are a few documents, not a guarantee. A person must approve every draft.

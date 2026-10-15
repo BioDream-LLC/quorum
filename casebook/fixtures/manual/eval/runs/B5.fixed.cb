@@ -1,0 +1,127 @@
+casebook b-46cfr-58_25-25-steering-alarms-draft v1
+source "B-46cfr-58.25-25-steering-alarms.txt" dated 2026-10-14 by "drafted by anthropic/claude-sonnet-5.5 from the manual; not yet approved"
+note "UNAPPROVED DRAFT: written by a language model from B-46cfr-58.25-25-steering-alarms.txt. Every declaration below cites the sentence"
+note "it came from. Check each against the manual, add what the manual does not say, then delete"
+note "this note to approve. quorum studio will not build a chip image while it is here."
+
+# manual: "Failure of the electric power to the control system of any steering gear"
+observe control_power_failed "electric power to the control system of a steering gear has failed"
+
+# manual: "Failure of that power to the power unit of any steering gear"
+observe power_unit_power_failed "electric power to the power unit of a steering gear has failed"
+
+# manual: "Occurrence of a low oil level in any oil reservoir of a hydraulic, power-operated steering-gear system"
+observe low_oil_reported "low oil level in a reservoir of a hydraulic, power-operated steering-gear system"
+
+# manual: "Failure of any phase of a three-phase power supply"
+observe phase_failed "a phase of a three-phase power supply has failed"
+
+# manual: "Overload of any motor described by § 58.25-55(c)"
+observe motor_overloaded "overload of a steering-gear motor"
+
+# manual: "On each vessel of 1,600 gross tons or over, a steering-failure alarm must be provided in the pilothouse"
+observe steering_failed "steering failure has occurred"
+
+# manual: "that activates when the motor is energized"
+observe motor_energized "a steering-gear power motor is energized"
+
+# manual: "Occurrence of a low oil level in any oil reservoir of a hydraulic, power-operated steering-gear system"
+claim low_oil_level "low oil level in a hydraulic steering-gear reservoir" severity 5 needs low_oil_reported
+
+# manual: "Overload of any motor described by § 58.25-55(c)"
+claim motor_overload_fault "steering-gear motor overload" severity 5 needs motor_overloaded
+
+# manual: "On each vessel of 1,600 gross tons or over, a steering-failure alarm must be provided in the pilothouse"
+claim steering_failure "steering failure on a vessel of 1,600 gross tons or over" severity 7 needs steering_failed
+
+# manual: "that activates when the motor is energized"
+claim motor_running "a steering-gear power motor is running" severity 1 needs motor_energized
+
+# manual: "the electric power to the control system of any steering gear"
+claim control_power_loss "loss of electric power to the steering gear control system" severity 6 needs control_power_failed
+
+# manual: "that power to the power unit of any steering gear"
+claim power_unit_power_loss "loss of electric power to the steering gear power unit" severity 6 needs power_unit_power_failed
+
+# manual: "any phase of a three-phase power supply"
+claim phase_loss "failure of a phase of the three-phase supply" severity 5 needs phase_failed
+
+# manual: "An audible and a visible alarm must activate in the machinery space upon"
+action alarm_machinery_space when any phase_loss motor_overload_fault low_oil_level phase_failed_blind motor_overloaded_blind
+
+# manual: "Each power motor for the main and auxiliary steering gear must have a “motor running” indicator light in the pilothouse, and in the machinery space, that activates when the motor is energized."
+action keep_running idle
+
+# manual: "On each vessel of 1,600 gross tons or over, a steering-failure alarm must be provided in the pilothouse"
+action secure_steering safe when any steering_failure steering_failed_blind
+
+# manual: "An audible and a visible alarm must activate in the pilothouse upon"
+action alarm_pilothouse when any control_power_loss power_unit_power_loss low_oil_level steering_failure control_power_failed_blind power_unit_power_failed_blind low_oil_reported_blind
+
+# manual: "must have a “motor running” indicator light in the pilothouse, and in the machinery space"
+action show_motor_running when any motor_running motor_energized_blind
+
+# manual: "must have a “motor running” indicator light in the pilothouse, and in the machinery space"
+prefer secure_steering over alarm_pilothouse over alarm_machinery_space over show_motor_running over keep_running
+
+# ── Failed-sensor checks, added by quorum studio ─────────────────────────────────────────────────────────
+# cbc refused this rulebook because nothing could argue with any claim, so it could not tell a dead sensor
+# from a quiet machine. Each block below stops claims being drawn from one reading while its instrument has
+# failed, and takes the response that reading would have led to instead. Each is a suggestion: confirm or
+# delete it.
+
+# TODO: confirm the device can tell when the control_power_failed instrument has failed (a broken wire, a stuck
+# or out-of-range value), and that alarm_pilothouse is the right response then. If control_power_failed is not an
+# instrument at all, delete these lines.
+observe control_power_failed_failed "the instrument behind control_power_failed has failed or is disconnected"
+doubt control_power_failed_untrusted "control_power_failed is not trusted while its instrument has failed" needs control_power_failed_failed
+control_power_failed_untrusted undercuts control_power_loss
+claim control_power_failed_blind "there is no trustworthy reading of control_power_failed" needs control_power_failed_failed
+
+# TODO: confirm the device can tell when the power_unit_power_failed instrument has failed (a broken wire, a stuck
+# or out-of-range value), and that alarm_pilothouse is the right response then. If power_unit_power_failed is not an
+# instrument at all, delete these lines.
+observe power_unit_power_failed_failed "the instrument behind power_unit_power_failed has failed or is disconnected"
+doubt power_unit_power_failed_untrusted "power_unit_power_failed is not trusted while its instrument has failed" needs power_unit_power_failed_failed
+power_unit_power_failed_untrusted undercuts power_unit_power_loss
+claim power_unit_power_failed_blind "there is no trustworthy reading of power_unit_power_failed" needs power_unit_power_failed_failed
+
+# TODO: confirm the device can tell when the low_oil_reported instrument has failed (a broken wire, a stuck
+# or out-of-range value), and that alarm_pilothouse is the right response then. If low_oil_reported is not an
+# instrument at all, delete these lines.
+observe low_oil_reported_failed "the instrument behind low_oil_reported has failed or is disconnected"
+doubt low_oil_reported_untrusted "low_oil_reported is not trusted while its instrument has failed" needs low_oil_reported_failed
+low_oil_reported_untrusted undercuts low_oil_level
+claim low_oil_reported_blind "there is no trustworthy reading of low_oil_reported" needs low_oil_reported_failed
+
+# TODO: confirm the device can tell when the phase_failed instrument has failed (a broken wire, a stuck
+# or out-of-range value), and that alarm_machinery_space is the right response then. If phase_failed is not an
+# instrument at all, delete these lines.
+observe phase_failed_failed "the instrument behind phase_failed has failed or is disconnected"
+doubt phase_failed_untrusted "phase_failed is not trusted while its instrument has failed" needs phase_failed_failed
+phase_failed_untrusted undercuts phase_loss
+claim phase_failed_blind "there is no trustworthy reading of phase_failed" needs phase_failed_failed
+
+# TODO: confirm the device can tell when the motor_overloaded instrument has failed (a broken wire, a stuck
+# or out-of-range value), and that alarm_machinery_space is the right response then. If motor_overloaded is not an
+# instrument at all, delete these lines.
+observe motor_overloaded_failed "the instrument behind motor_overloaded has failed or is disconnected"
+doubt motor_overloaded_untrusted "motor_overloaded is not trusted while its instrument has failed" needs motor_overloaded_failed
+motor_overloaded_untrusted undercuts motor_overload_fault
+claim motor_overloaded_blind "there is no trustworthy reading of motor_overloaded" needs motor_overloaded_failed
+
+# TODO: confirm the device can tell when the steering_failed instrument has failed (a broken wire, a stuck
+# or out-of-range value), and that secure_steering is the right response then. If steering_failed is not an
+# instrument at all, delete these lines.
+observe steering_failed_failed "the instrument behind steering_failed has failed or is disconnected"
+doubt steering_failed_untrusted "steering_failed is not trusted while its instrument has failed" needs steering_failed_failed
+steering_failed_untrusted undercuts steering_failure
+claim steering_failed_blind "there is no trustworthy reading of steering_failed" needs steering_failed_failed
+
+# TODO: confirm the device can tell when the motor_energized instrument has failed (a broken wire, a stuck
+# or out-of-range value), and that show_motor_running is the right response then. If motor_energized is not an
+# instrument at all, delete these lines.
+observe motor_energized_failed "the instrument behind motor_energized has failed or is disconnected"
+doubt motor_energized_untrusted "motor_energized is not trusted while its instrument has failed" needs motor_energized_failed
+motor_energized_untrusted undercuts motor_running
+claim motor_energized_blind "there is no trustworthy reading of motor_energized" needs motor_energized_failed

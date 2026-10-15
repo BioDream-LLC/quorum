@@ -1,0 +1,59 @@
+casebook b-46cfr-58_25-25-steering-alarms-draft v1
+source "B-46cfr-58.25-25-steering-alarms.txt" dated 2026-10-14 by "drafted by anthropic/claude-sonnet-5.5 from the manual; not yet approved"
+note "UNAPPROVED DRAFT: written by a language model from B-46cfr-58.25-25-steering-alarms.txt. Every declaration below cites the sentence"
+note "it came from. Check each against the manual, add what the manual does not say, then delete"
+note "this note to approve. quorum studio will not build a chip image while it is here."
+
+# manual: "Failure of the electric power to the control system of any steering gear"
+observe control_power_failed "electric power to the control system of a steering gear has failed"
+
+# manual: "Failure of that power to the power unit of any steering gear"
+observe unit_power_failed "electric power to the power unit of a steering gear has failed"
+
+# manual: "Occurrence of a low oil level in any oil reservoir of a hydraulic, power-operated steering-gear system"
+observe low_oil_level "low oil level in an oil reservoir of a hydraulic, power-operated steering-gear system"
+
+# manual: "Failure of any phase of a three-phase power supply"
+observe phase_failed "a phase of a three-phase power supply has failed"
+
+# manual: "Overload of any motor described by § 58.25-55(c)"
+observe motor_overloaded "a steering-gear motor is overloaded"
+
+# manual: "that activates when the motor is energized"
+observe motor_energized "a steering-gear power motor is energized"
+
+# manual: "Failure of the electric power to the control system of any steering gear"
+claim control_power_loss "loss of power to the steering gear control system" severity 6 needs control_power_failed
+
+# manual: "Failure of that power to the power unit of any steering gear"
+claim unit_power_loss "loss of power to the steering gear power unit" severity 6 needs unit_power_failed
+
+# manual: "Occurrence of a low oil level in any oil reservoir of a hydraulic, power-operated steering-gear system"
+claim low_oil "low oil level in the hydraulic steering-gear reservoir" severity 5 needs low_oil_level
+
+# manual: "Failure of any phase of a three-phase power supply"
+claim phase_loss "loss of a phase of the three-phase power supply" severity 5 needs phase_failed
+
+# manual: "Overload of any motor described by § 58.25-55(c)"
+claim motor_overload "steering-gear motor overload" severity 5 needs motor_overloaded
+
+# manual: "that activates when the motor is energized"
+claim motor_running "a steering-gear power motor is running" severity 1 needs motor_energized
+
+# manual: "Indication of the rudder angle must be provided both at the main steering station in the pilothouse and in the steering-gear compartment"
+action keep_running idle
+
+# manual: "An audible and a visible alarm must activate in the pilothouse upon"
+action alarm_pilothouse when any control_power_loss unit_power_loss low_oil
+
+# manual: "An audible and a visible alarm must activate in the machinery space upon"
+action alarm_machinery when any phase_loss motor_overload low_oil
+
+# manual: "must have a “motor running” indicator light in the pilothouse, and in the machinery space"
+action show_motor_running when any motor_running
+
+# manual: "An audible and a visible alarm must activate in the pilothouse upon"
+action safe_state safe when any control_power_loss unit_power_loss
+
+# manual: "must have a “motor running” indicator light in the pilothouse, and in the machinery space"
+prefer safe_state over alarm_pilothouse over alarm_machinery over show_motor_running over keep_running

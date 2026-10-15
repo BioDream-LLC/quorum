@@ -321,6 +321,26 @@ What it does not do: compute per-state work. The timing bound and the worst-case
 from exhaustive validation, so device images still require it. The 32-bit presence mask is a device limit and is
 unchanged.
 
+## Commissioning sheet — `cbc --commissioning`
+
+`cbc pump.cb --commissioning pump.sheet` writes the loop-check sheet as tab-separated text: the image fingerprint, the
+actions in the order the device numbers them, the action at rest, and one row per reading. Each row gives how the
+reading is set (a presence bit, or the channel threshold, unavailability or flatline that sets it), the action with
+it alone, and the fewest other readings (up to three) with which it changes the decision, with the action with and
+without it. quorum studio prints it and drives a board through it over Modbus (`studio/README.md`). It exists
+because exhaustive validation proves the rules and says nothing about whether the plant feeds them the right readings.
+
+## A second implementation — `tools/refcheck.py`
+
+`tools/refcheck.py <cbc> <file.cb> ...` reads rulebooks itself, evaluates them by the rules in this document (no
+framework, no gates: a three-valued fixed point over the declarations), and compares its outcome and action with cbc's
+certificate in every state. `--fuzz <n> <seed>` does the same for random rulebooks. `tools/refcheck_test.sh` (ctest
+`refcheck`) runs both and requires six deliberate mistakes in refcheck to be noticed.
+
+One rule it pinned down, by finding cbc breaking it: **a doubt reads its evidence raw, whatever else discards that
+reading.** That includes the consequent of an `implies`. A reading that something discards and some doubt reads raw is
+therefore split into raw and usable forms, and every discarding attack lands on the usable form, however it is written.
+
 ## Proof certificates — `cbc --certificate` and `tools/qcert`
 
 `cbc pump.cb --certificate pump.cert` writes, for every state, the decision and the complete grounded labelling with

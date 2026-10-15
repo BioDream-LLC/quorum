@@ -1,0 +1,16 @@
+REVIEW -- what the checks cannot decide. Start here.
+
+draft as a whole: no structural problems found
+
+what can stop the safe action (each may be right; a person must decide):
+  CAUTION  nothing in this draft can cancel any claim: the manual states no exception and no instrument check. The compiler will refuse it until something can, because a rulebook nobody can argue with cannot tell a dead sensor from a quiet machine. Decide what may cancel each claim -- most often a doubt for a failed or unplugged sensor, or a sensor channel, whose dead-sensor checks are generated -- and add it; do not add an exception the manual does not state. After a refused check, the studio's "Add a failed-sensor check for each reading" writes the usual answer, marked TODO for you to confirm.
+
+rules to check first (a real quote does not mean a real rule):
+  none flagged -- which is not the same as all correct
+
+manual sentences no rule cites (4 of 9). A missing rule is usually in here, but not
+always: a sentence cited for one rule can state another that is still missing.
+  - The rudder-angle indicator must be independent of control systems for steering gear.
+  - (b) Each electric-type rudder-angle indicator must comply with § 113.
+  - 15-5(h) of this chapter, draw its power from the source of emergency power.
+  - (c) On each vessel of 1,600 gross tons or over, a steering-failure alarm must be provided in the pilothouse in accordance with §§ 113.

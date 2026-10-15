@@ -1,0 +1,18 @@
+REVIEW -- what the checks cannot decide. Start here.
+
+draft as a whole: no structural problems found
+
+rules to check first (a real quote does not mean a real rule):
+  FLAG     claim start_too_soon
+           its quote never mentions start_requested: either the manual does not say this, or it says it in another sentence and this is the wrong citation
+           quote: "A prepurge period of a sufficient duration to ensure at least four changes of air in the combustion chamber and stack, but not less than 15 seconds must be provided."
+
+manual sentences no rule cites (7 of 15). A missing rule is usually in here, but not
+always: a sentence cited for one rule can state another that is still missing.
+  - (b) Means must be provided to silence the audible alarm.
+  - (d) For a periodically unattended machinery space, the auxiliary boiler trip alarm required by table 1 to § 62.
+  - 35-50 of this subchapter satisfies the requirements for the audible alarms specified in this section.
+  - 25-1 Small automatic auxiliary boilers.
+  - Small automatic auxiliary boilers defined as having heat-input ratings of 400,000 Btu/hr.
+  - or less (117 kilowatts or less) must also meet the following requirements.
+  - [CGD 88-057, 55 FR 24238, June 15, 1990, as amended by USCG-2003-16630, 73 FR 65191, Oct.

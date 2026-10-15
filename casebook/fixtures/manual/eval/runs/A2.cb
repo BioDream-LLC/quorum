@@ -1,0 +1,110 @@
+casebook a-46cfr-58_10-15-gas-turbine-draft v1
+source "A-46cfr-58.10-15-gas-turbine.txt" dated 2026-10-14 by "drafted by anthropic/claude-sonnet-5.5 from the manual; not yet approved"
+note "UNAPPROVED DRAFT: written by a language model from A-46cfr-58.10-15-gas-turbine.txt. Every declaration below cites the sentence"
+note "it came from. Check each against the manual, add what the manual does not say, then delete"
+note "this note to approve. quorum studio will not build a chip image while it is here."
+
+# manual: "Low lubricating oil pressure."
+observe low_oil_pressure_detected "low lubricating oil pressure reported"
+
+# manual: "Excessive gas temperature, measured at the turbine inlet, gas generator, interstage turbine or turbine exhaust"
+observe gas_temp_high "gas temperature excessive at turbine inlet, gas generator, interstage turbine or turbine exhaust"
+
+# manual: "Excessive lubricating oil temperature"
+observe oil_temp_high "lubricating oil temperature excessive"
+
+# manual: "Excessive speed"
+observe speed_high "engine speed excessive"
+
+# manual: "Reduced lubricating oil pressure"
+observe oil_pressure_reduced "lubricating oil pressure reduced"
+
+# manual: "in those cases where suitable antifriction bearings are fitted"
+observe antifriction_bearings_fitted "suitable antifriction bearings are fitted"
+
+# manual: "Gas turbine exhausts must not be interconnected with boiler uptakes"
+observe exhaust_interconnected "gas turbine exhaust is interconnected with a boiler uptake"
+
+# manual: "gas turbines used for emergency power and lighting or for emergency propulsion"
+observe emergency_service_turbine "the gas turbine is used for emergency power and lighting or for emergency propulsion"
+
+# manual: "Interconnected exhausts must be specifically approved by the Commandant."
+observe commandant_approval "the interconnected exhaust has been specifically approved by the Commandant"
+
+# manual: "A gas turbine exhaust on a mobile offshore drilling unit must not discharge in a classified location."
+observe unit_is_modu "the installation is on a mobile offshore drilling unit"
+
+# manual: "A gas turbine exhaust on a mobile offshore drilling unit must not discharge in a classified location."
+observe exhaust_discharges_classified "the gas turbine exhaust discharges in a classified location"
+
+# manual: "A gas turbine air inlet must not be in a classified location."
+observe air_inlet_in_classified_location "the gas turbine air inlet is located in a classified location"
+
+# manual: "Automatic shutdown must occur under the following conditions:"
+observe overspeed_detected "engine overspeed reported"
+
+# manual: "Low lubricating oil pressure."
+claim low_oil_pressure_fault "low lubricating oil pressure requiring automatic shutdown" severity 8 needs low_oil_pressure_detected
+
+# manual: "Excessive gas temperature, measured at the turbine inlet, gas generator, interstage turbine or turbine exhaust"
+claim gas_temp_alarm "excessive gas temperature, alarm required" severity 5 needs gas_temp_high
+
+# manual: "Excessive lubricating oil temperature"
+claim oil_temp_alarm "excessive lubricating oil temperature, alarm required" severity 5 needs oil_temp_high
+
+# manual: "Excessive speed"
+claim speed_alarm "excessive speed, alarm required" severity 5 needs speed_high
+
+# manual: "Reduced lubricating oil pressure"
+claim oil_pressure_alarm "reduced lubricating oil pressure, alarm required" severity 5 needs oil_pressure_reduced
+
+# manual: "Consideration will be given providing alarm only (without shutdown) in those cases where suitable antifriction bearings are fitted."
+excuse antifriction_alarm_only "with suitable antifriction bearings, alarm only without shutdown may be accepted for low lubricating oil pressure" needs antifriction_bearings_fitted
+
+# manual: "Gas turbine exhausts must not be interconnected with boiler uptakes"
+claim prohibited_exhaust_interconnection "gas turbine exhaust interconnected with boiler uptake, which is not permitted" severity 5 needs exhaust_interconnected
+
+# manual: "except for gas turbines used for emergency power and lighting or for emergency propulsion"
+excuse emergency_turbine_exception "interconnection is allowed for gas turbines used for emergency power and lighting or emergency propulsion" needs emergency_service_turbine
+
+# manual: "Interconnected exhausts must be specifically approved by the Commandant."
+excuse approved_interconnection "an interconnected exhaust specifically approved by the Commandant is permitted" needs commandant_approval
+
+# manual: "A gas turbine exhaust on a mobile offshore drilling unit must not discharge in a classified location."
+claim prohibited_exhaust_discharge_classified "gas turbine exhaust on a mobile offshore drilling unit discharging in a classified location, which is not permitted" severity 5 needs unit_is_modu exhaust_discharges_classified
+
+# manual: "A gas turbine air inlet must not be in a classified location."
+claim prohibited_air_inlet_classified "gas turbine air inlet in a classified location, which is not permitted" severity 5 needs air_inlet_in_classified_location
+
+# manual: "Low lubricating oil pressure. Consideration will be given providing alarm only (without shutdown) in those cases where suitable antifriction bearings are fitted."
+claim low_oil_pressure_alarm_only "low lubricating oil pressure with suitable antifriction bearings fitted: alarm only, without shutdown" severity 5 needs low_oil_pressure_detected antifriction_bearings_fitted
+
+# manual: "Automatic shutdown must occur under the following conditions:"
+claim overspeed_fault "engine overspeed requiring automatic shutdown" severity 9 needs overspeed_detected
+
+# manual: "Consideration will be given providing alarm only (without shutdown) in those cases where suitable antifriction bearings are fitted."
+antifriction_alarm_only undercuts low_oil_pressure_fault
+
+# manual: "except for gas turbines used for emergency power and lighting or for emergency propulsion"
+emergency_turbine_exception undercuts prohibited_exhaust_interconnection
+
+# manual: "Interconnected exhausts must be specifically approved by the Commandant."
+approved_interconnection undercuts prohibited_exhaust_interconnection
+
+# manual: "Audible or visible alarms must also be provided for:"
+action raise_alarm when any gas_temp_alarm oil_temp_alarm speed_alarm oil_pressure_alarm
+
+# manual: "Automatic shutdown must occur under the following conditions"
+action keep_running idle
+
+# manual: "Consideration will be given providing alarm only (without shutdown) in those cases where suitable antifriction bearings are fitted."
+action raise_low_oil_alarm when any low_oil_pressure_alarm_only
+
+# manual: "A gas turbine exhaust on a mobile offshore drilling unit must not discharge in a classified location."
+action require_correction when any prohibited_exhaust_interconnection prohibited_exhaust_discharge_classified prohibited_air_inlet_classified
+
+# manual: "The control system must be designed for automatic shutdown of the engine with actuation of audible and visible alarms at shutdown."
+action shutdown_engine safe when any overspeed_fault low_oil_pressure_fault
+
+# manual: "Consideration will be given providing alarm only (without shutdown) in those cases where suitable antifriction bearings are fitted."
+prefer shutdown_engine over raise_alarm over raise_low_oil_alarm over require_correction over keep_running

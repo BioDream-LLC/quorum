@@ -439,7 +439,8 @@ func Assess(manual string, r Result) Review {
 			"and no instrument check. The compiler will refuse it until something can, because a rulebook nobody can "+
 			"argue with cannot tell a dead sensor from a quiet machine. Decide what may cancel each claim -- most often "+
 			"a doubt for a failed or unplugged sensor, or a sensor channel, whose dead-sensor checks are generated -- "+
-			"and add it; do not add an exception the manual does not state.")
+			"and add it; do not add an exception the manual does not state. After a refused check, the studio's \"Add a "+
+			"failed-sensor check for each reading\" writes the usual answer, marked TODO for you to confirm.")
 	}
 	return rv
 }

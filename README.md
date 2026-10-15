@@ -138,6 +138,7 @@ every claim with the test that establishes it and what that test does not cover.
 <li>Drafts a rulebook from an equipment manual, with a model on your computer (Ollama) or a hosted one (OpenRouter)</li>
 <li>Every rule it keeps must <b>quote the manual word for word</b>; mistakes and failed checks are sent back to it</li>
 <li>A review lists first everything that could stop the safe action</li>
+<li>On four regulations it had never seen, scored against a key written before any run: 86% of checks, five runs each (<a href="casebook/fixtures/manual/eval/RESULTS.md">results</a>)</li>
 <li>The draft is marked <b>unapproved</b>, and no chip image can be built until a named person approves it</li>
 <li>Hosted models are asked only for providers that keep no copy of the manual</li>
 </ul>
@@ -149,6 +150,8 @@ every claim with the test that establishes it and what that test does not cover.
 <li>Open, import, learn or draft a rulebook; edit it with highlighting, find and replace, and a to-do list</li>
 <li>Edit the worksheet itself, with undo, and re-import</li>
 <li>Check every situation, then <b>download the chip image or write it straight to the board</b></li>
+<li>Print a <b>commissioning sheet</b> for the loop check on the real machine, and test a board against it over Modbus</li>
+<li>If a rulebook is refused because nothing can argue with it, one click adds a failed-sensor check per reading, each marked for an engineer to confirm</li>
 <li>Windows installer with no administrator rights; Linux binary; macOS app for Apple Silicon and Intel; listens on this computer only, with a per-launch token</li>
 </ul>
 </td>
@@ -451,6 +454,28 @@ in an odd cycle can behave the same way. Sampling had never hit one; running exh
 `continue` and `gate_no_maintain_reason`, which sit on a cycle. A check that is wrong about the semantics cannot be
 evidence about an engine's semantics — so it was replaced by the reconstruction above, which is both correct and stronger.
 
+**Both of those check the solver, and neither can check the compiler.** CaDiCaL and `qcert` both start from the
+framework cbc built, so a rule that cbc read or lowered wrongly would be checked perfectly. `tools/refcheck.py` starts
+from the rulebook text instead. It is a second implementation of the language in about 300 lines of Python, written
+from the documentation rather than from cbc's source. It builds no framework; it evaluates the rules directly to a
+fixed point. It then compares its decision with cbc's in every state:
+- of every rulebook in the repository;
+- of random rulebooks: 3,000 across six seeds, about 510,000 states, after the fix.
+
+Six deliberate mistakes in it (severity ignored, an undercut cancelled by severity, `any` read as `all`, doubts reading
+trusted values, `prefer` ignored, a vote off by one) must each be noticed, and are (ctest `refcheck`).
+
+**It found a real compiler bug on its first random run.** When a doubt discarded a reading that another doubt reads
+raw, such as the consequent of an `implies`, cbc landed the discarding attack on the raw reading itself. The other
+doubt then saw the discarded value, against the documented rule. Worse, the answer depended on whether `undermines`
+was written inside the doubt's declaration or on its own line. On the reduced case the safe action went unchosen. It is
+fixed (2026-10-14), with `casebook/fixtures/consistency/raw_consequent.cb` as the regression fixture. No rulebook on a
+board changed: the pump and the tank compile to identical images. Two drafted fixtures gained one internal argument
+and decide all 32 of their states as before.
+
+This is still the same developer writing both implementations, from documentation that developer wrote. It makes a
+shared misreading less likely; it does not replace outside review, which quorum has not had.
+
 ## The two pump casebooks
 
 `pump.cb` is a frozen verification fixture: the fixed point of the equivalence proof against hand-written C++ that
@@ -749,6 +774,17 @@ bash tools/ci.sh              # all 15 gates, the single entry point
 ./tools/figures.sh --update   # after any change that moves a measured number
 ```
 
+The studio, with both board firmwares and the Windows installer, needs only Docker, git and bash:
+
+```sh
+studio/build.sh               # -> studio/dist/: quorum-studio (Linux), quorum-studio.exe, the installer
+MAC=user@host studio/build-macos.sh   # after build.sh: the macOS zip, built on a Mac over ssh
+```
+
+On a machine that has never built quorum, `build.sh` makes its Docker images from the Dockerfiles here, fetches the
+pinned Pico SDK (2.1.1) into `build/`, and generates the headers the firmware needs. Checked 2026-10-14 from a fresh
+copy of the public tree, with no images, no SDK and no build folder: about two minutes on top of the Docker downloads.
+
 ### The numbers in this file are checked
 
 Four tables above — footprint, the CaDiCaL cross-check, board support, and the WCET bounds — are **generated** from the
@@ -783,10 +819,19 @@ additionally gated with `-ffreestanding -fno-exceptions -fno-rtti -fno-threadsaf
   result reproduces a real accident, but reproducing a known outcome is postdiction, not prediction. The strongest
   missing evidence is a reliability engineer encoding a casebook from an FMEA quorum's developers have never seen, and the
   exhaustive validator surfacing an ambiguity they did not know their document contained.
-- **30 observations per casebook**, because the presence mask is 32-bit.
+- **30 observations per casebook**, because the presence mask is 32-bit, and the full check doubles in time with each
+  one. It uses every core and gives byte-identical results however many. Measured on synthetic rulebooks
+  (`casebook/fixtures/scale/gen.py`) with an 8-core i9-9900K: 21 readings 0.2 s, 24 readings 1.7 s, 27 readings 14 s,
+  30 readings 2 minutes. That is fine at a desk and too slow to repeat on every keystroke. `cbc --symbolic` checks the
+  main invariants of all states at once in milliseconds, but the chip image still needs the full check.
 - **A learned casebook has run on silicon once per board, not under CI.** On 2026-10-01 the Pico 2 and the Uno R4
   each decided all 1024 states of a learned casebook identically to the learner (same per-state fingerprint as the
   host). The host check runs on every build; the board runs are single captures in `firmware/*/measured-learned-*`.
+- **The check proves the rules, not the plant.** Whether each reading comes from the right instrument, each threshold
+  is set where the document says, and the controller passes each reading on is not something exhaustive validation
+  can see. The studio prints a commissioning sheet for that loop check, and can drive a board through the same sheet
+  over Modbus (41 of 41 states on a Pico 2). But only a person working through it on the real machine checks the
+  wiring, and no plant has done so yet.
 - **No temporal reasoning.** The framework is stateless per cycle; all history lives in the binding layer's latches
   and flatline windows. A casebook cannot say "X happened before Y".
 - **RPN does not translate.** Severity does, through ASPIC+ preference ordering (`severity 1..10` on a claim), but

@@ -222,6 +222,10 @@
       <span id="extras" class="status">nothing else</span>
     </div>
     <div id="verdict" class="verdict" role="status"></div>
+    <div class="row" id="fixrow" style="display:none">
+      <button id="fixsensors" style="--c:var(--amber)">Add a failed-sensor check for each reading</button>
+      <span class="status">The usual answer to this refusal. Each added check is marked TODO for you to confirm or delete.</span>
+    </div>
     <div class="out" id="out"><div>Nothing checked yet.</div></div>
   </section>
 
@@ -238,6 +242,16 @@
     <p class="hint">The board will print this line. If it matches, the chip decided every situation exactly as checked here:</p>
     <div class="device" id="sweep">-</div>
     <pre id="info" style="margin-top:10px">-</pre>
+    <h3 style="font-size:14px;margin:14px 0 4px">Commissioning</h3>
+    <p class="hint">The check proves the rules, not the wiring. Print the sheet and, on the real machine, set each
+      reading for real and confirm quorum's answer. On the bench, the studio can drive a board over Modbus through the
+      same sheet.</p>
+    <div class="row">
+      <a id="sheetdl"><button id="sheetbtn" class="ghost" disabled>Commissioning sheet</button></a>
+      <input id="benchport" placeholder="serial port, e.g. COM4 or /dev/ttyACM0" style="width:250px" aria-label="Board serial port">
+      <button id="benchbtn" class="ghost" disabled>Test the board</button>
+    </div>
+    <pre id="benchout" style="display:none;max-height:260px;overflow:auto"></pre>
   </section>
 
   <section class="wide" id="sheetsec" style="--c:var(--sky); display:none">
@@ -486,6 +500,8 @@ src.addEventListener("keydown", e => {
 // ── loading and editing state ─────────────────────────────────────────────────────────────────────────────────────
 function invalidate() {
   imageId = null; $("download").disabled = $("flash").disabled = true; $("dl").removeAttribute("href");
+  $("sheetbtn").disabled = $("benchbtn").disabled = true; $("sheetdl").removeAttribute("href");
+  $("benchout").style.display = "none";
   $("sweep").textContent = "-"; $("info").textContent = "-";
 }
 function edited() {
@@ -542,12 +558,18 @@ $("check").onclick = async () => {
     const c = await api("/api/check", { source: src.value, name, board: $("board").value, extras });
     showOutput(c.output);
     const v = $("verdict");
+    $("fixrow").style.display = "none";
     if (c.ok) {
       v.className = "verdict ok"; v.textContent = "Passed. Every situation has exactly one answer, on time.";
       imageId = c.image; $("download").disabled = $("flash").disabled = false;
       $("dl").href = "/api/download/" + c.image + "?t=" + TOKEN; $("dl").download = c.file;
       $("sweep").textContent = c.sweep; $("info").textContent = c.info;
+      if (c.sheet) {
+        $("sheetbtn").disabled = $("benchbtn").disabled = false;
+        $("sheetdl").href = "/api/sheet/" + c.image + "?t=" + TOKEN;
+      }
     } else {
+      $("fixrow").style.display = c.fix === "sensors" ? "" : "none";
       const errs = [...marks.values()].filter(k => k === "err").length;
       v.className = "verdict no";
       v.textContent = "Refused. No image was made." + (errs ? ` ${errs} line${errs === 1 ? "" : "s"} marked red; click an error to jump to it.` : " The reasons are below.");
@@ -556,6 +578,22 @@ $("check").onclick = async () => {
     }
   } catch (e) { showOutput(e.message); }
   $("check").disabled = false;
+};
+// The one refusal that is not a mistake in a line: nothing can argue with any claim. The repair is written by the
+// server, shown in the editor, and checked again by the person; it is never applied silently.
+$("fixsensors").onclick = async () => {
+  $("fixsensors").disabled = true;
+  try {
+    const r = await api("/api/fix/sensors", { source: src.value });
+    src.value = r.source; src.dispatchEvent(new Event("input"));
+    $("fixrow").style.display = "none";
+    const v = $("verdict"); v.className = "verdict";
+    v.textContent = `Added a failed-sensor check for ${r.added.length} reading${r.added.length === 1 ? "" : "s"}, ` +
+      "at the end of the rulebook. Read each TODO, then press Check again.";
+    showOutput(r.added.map(a => `${a.reading}: if its instrument fails -> ${a.action}`).concat(
+      (r.skipped || []).map(x => "left alone: " + x)).join("\n"));
+  } catch (e) { showOutput(e.message); }
+  $("fixsensors").disabled = false;
 };
 const BOARD_HINT = { pico2: "To write directly: hold BOOTSEL on the Pico while plugging it in, then press Write.",
   unor4: "To write directly: plug the Uno R4 in by USB and press Write. Uses the dfu-util from your Arduino install." };
@@ -567,6 +605,16 @@ $("flash").onclick = async () => {
         ". The board restarts by itself and runs the rulebook."; }
   catch (e) { $("flashmsg").textContent = e.message; }
   $("flash").disabled = false;
+};
+$("benchbtn").onclick = async () => {
+  const out = $("benchout"); out.style.display = ""; out.textContent = "Testing the board on " + $("benchport").value + "...";
+  $("benchbtn").disabled = true;
+  try {
+    const r = await api("/api/bench/" + imageId, { port: $("benchport").value });
+    out.textContent = r.steps.map(s => (s.pass ? "PASS  " : "FAIL  ") + s.label + ": expect " + s.expect + ", board " + s.got).join("\n") +
+      `\n\n${r.passed} of ${r.passed + r.failed} states as the sheet says (board image 0x${r.fingerprint.toString(16).padStart(8, "0")}).`;
+  } catch (e) { out.textContent = e.message; }
+  $("benchbtn").disabled = false;
 };
 $("save").onclick = () => download(src.value, name + ".cb", "text/plain");
 

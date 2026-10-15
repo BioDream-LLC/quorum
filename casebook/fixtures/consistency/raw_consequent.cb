@@ -1,0 +1,20 @@
+casebook raw-consequent v1
+source "regression fixture: a doubt that discards the consequent of an implies" dated 2026-10-14 by "quorum tests"
+note "Reduced from a random rulebook on which tools/refcheck.py and cbc disagreed (2026-10-14)."
+note "With r4, r5 and r7 all present: d4 discards r7, but the consistency doubt for 'implies r5 r7' reads r7 RAW, as"
+note "documented, so r7 present means r5 is corroborated, c1 holds and the safe action a0 is chosen. cbc used to land"
+note "d4's attack on the raw r7 itself, so the mismatch fired, r5 was discarded and idle_run was chosen; and writing"
+note "'undermines r7' inside d4's declaration instead of on its own line gave the other answer."
+observe r4 "reading r4"
+observe r5 "reading r5"
+observe r7 "reading r7"
+claim c1 "c1" needs r5
+claim c2 "c2" when any r7 r5
+doubt d4 "d4" needs r5 r4
+d4 undermines r7
+implies r5 r7
+r4 rebuts c2
+action idle_run idle
+action a0 safe when c1
+action a1 when c2
+prefer a0 over a1 over idle_run

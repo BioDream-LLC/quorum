@@ -1,0 +1,65 @@
+casebook a-46cfr-58_10-15-gas-turbine-draft v1
+source "A-46cfr-58.10-15-gas-turbine.txt" dated 2026-10-14 by "drafted by anthropic/claude-sonnet-5.5 from the manual; not yet approved"
+note "UNAPPROVED DRAFT: written by a language model from A-46cfr-58.10-15-gas-turbine.txt. Every declaration below cites the sentence"
+note "it came from. Check each against the manual, add what the manual does not say, then delete"
+note "this note to approve. quorum studio will not build a chip image while it is here."
+
+# manual: "Low lubricating oil pressure."
+observe low_oil_pressure "low lubricating oil pressure"
+
+# manual: "Excessive gas temperature, measured at the turbine inlet, gas generator, interstage turbine or turbine exhaust."
+observe gas_temp_high "excessive gas temperature at turbine inlet, gas generator, interstage turbine or turbine exhaust"
+
+# manual: "Excessive lubricating oil temperature."
+observe oil_temp_high "excessive lubricating oil temperature"
+
+# manual: "Excessive speed."
+observe speed_high "excessive speed"
+
+# manual: "Reduced lubricating oil pressure."
+observe oil_pressure_reduced "reduced lubricating oil pressure"
+
+# manual: "Automatic shutdown must occur under the following conditions:"
+observe overspeed_detected "engine overspeed"
+
+# manual: "Consideration will be given providing alarm only (without shutdown) in those cases where suitable antifriction bearings are fitted."
+observe antifriction_bearings "suitable antifriction bearings are fitted"
+
+# manual: "The control system must be designed for automatic shutdown of the engine with actuation of audible and visible alarms at shutdown."
+claim overspeed_fault "engine overspeed requiring automatic shutdown" severity 9 needs overspeed_detected
+
+# manual: "Low lubricating oil pressure."
+claim low_oil_pressure_fault "low lubricating oil pressure requiring automatic shutdown" severity 8 needs low_oil_pressure
+
+# manual: "Excessive gas temperature, measured at the turbine inlet, gas generator, interstage turbine or turbine exhaust."
+claim gas_temp_alarm "excessive gas temperature alarm" severity 4 needs gas_temp_high
+
+# manual: "Excessive lubricating oil temperature."
+claim oil_temp_alarm "excessive lubricating oil temperature alarm" severity 4 needs oil_temp_high
+
+# manual: "Excessive speed."
+claim speed_alarm "excessive speed alarm" severity 4 needs speed_high
+
+# manual: "Reduced lubricating oil pressure."
+claim oil_pressure_alarm "reduced lubricating oil pressure alarm" severity 4 needs oil_pressure_reduced
+
+# manual: "Consideration will be given providing alarm only (without shutdown) in those cases where suitable antifriction bearings are fitted."
+excuse antifriction_alarm_only "with suitable antifriction bearings, low lubricating oil pressure may give an alarm only, without shutdown" needs antifriction_bearings
+
+# manual: "Low lubricating oil pressure."
+claim low_oil_pressure_alarm "low lubricating oil pressure alarm; still applies when suitable antifriction bearings reduce the response to alarm only" severity 4 needs low_oil_pressure
+
+# manual: "Consideration will be given providing alarm only (without shutdown) in those cases where suitable antifriction bearings are fitted."
+antifriction_alarm_only undercuts low_oil_pressure_fault
+
+# manual: "Automatic shutdown must occur under the following conditions:"
+action keep_running idle
+
+# manual: "The control system must be designed for automatic shutdown of the engine with actuation of audible and visible alarms at shutdown."
+action shutdown_engine safe when any overspeed_fault low_oil_pressure_fault
+
+# manual: "Audible or visible alarms must also be provided for:"
+action raise_alarm when any gas_temp_alarm oil_temp_alarm speed_alarm oil_pressure_alarm low_oil_pressure_alarm
+
+# manual: "The control system must be designed for automatic shutdown of the engine with actuation of audible and visible alarms at shutdown."
+prefer shutdown_engine over raise_alarm over keep_running

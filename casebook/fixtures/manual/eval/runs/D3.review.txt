@@ -1,0 +1,27 @@
+REVIEW -- what the checks cannot decide. Start here.
+
+draft as a whole: no structural problems found
+
+what can stop the safe action (each may be right; a person must decide):
+  CAUTION  operator_judgement can stop withdraw_miners (the safe action) for hazard_warning. Check that the manual means this, in every case listed: "unless the mine operator determines that the signal does not present a hazard to miners"
+  CAUTION  emergency_response_duty can stop withdraw_miners (the safe action) for hazard_warning. Check that the manual means this, in every case listed: "unless assigned emergency response duties"
+
+rules to check first (a real quote does not mean a real rule):
+  FLAG     attack examination_instead undercuts monitoring_required
+           its quote never mentions monitoring_required: either the manual does not say this, or it says it in another sentence and this is the wrong citation
+           quote: "unless an examination for hot rollers and fire is made"
+  FLAG     attack emergency_response_duty undercuts hazard_warning
+           its quote never mentions hazard_warning: either the manual does not say this, or it says it in another sentence and this is the wrong citation
+           quote: "unless assigned emergency response duties"
+  FLAG     claim notify_miners_due
+           its quote never mentions notify_miners_due: either the manual does not say this, or it says it in another sentence and this is the wrong citation
+           quote: "If any sensor indicates a warning, the following actions must be taken"
+
+manual sentences no rule cites (6 of 17). A missing rule is usually in here, but not
+always: a sentence cited for one rule can state another that is still missing.
+  - 1103-5 Automatic fire warning devices; actions and response.
+  - (2) At a manned surface location where personnel have an assigned post of duty.
+  - The manned surface location must have: (i) A telephone or equivalent communication with all miners who may be endangered and (ii) A map or schematic that shows the locations of sensors, and the intended air flow direction at these locations.
+  - (b) The fire sensor and warning device system shall include a means for rapid evaluation of electrical short and open circuits, ground faults, pneumatic leaks, or other defect detrimental to its proper operational condition.
+  - (c) Automatic fire sensor and warning devices shall include a manual reset feature.
+  - 16, 1972, as amended at 73 FR 80615, Dec.

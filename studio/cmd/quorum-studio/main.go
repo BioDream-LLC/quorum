@@ -5,6 +5,9 @@
 //	quorum-studio draft <manual.txt> [-model qwen2.5:7b] [-endpoint http://localhost:11434] [-o draft.cb] [-items in.json]
 //	                    [-repair N] [-sentences=false]
 //	quorum-studio import <hazop|lopa|fmea> <worksheet.csv>
+//	quorum-studio sheet <in.cb> [-o sheet.html]        the commissioning (loop-check) sheet for the real plant
+//	quorum-studio bench <in.cb> -port COM3              drive a board over Modbus through the sheet and compare
+//	quorum-studio fix-sensors <in.cb> [-o out.cb]       add a failed-sensor check per reading (each marked TODO)
 package main
 
 import (
@@ -20,6 +23,8 @@ import (
 	"strings"
 	"time"
 
+	"quorum/studio/internal/bench"
+	"quorum/studio/internal/fix"
 	"quorum/studio/internal/pipeline"
 	"quorum/studio/internal/server"
 	"quorum/studio/web"
@@ -34,10 +39,17 @@ func main() {
 			os.Exit(draftCmd(os.Args[2:]))
 		case "import":
 			os.Exit(importCmd(os.Args[2:]))
+		case "sheet":
+			os.Exit(sheetCmd(os.Args[2:]))
+		case "bench":
+			os.Exit(benchCmd(os.Args[2:]))
+		case "fix-sensors":
+			os.Exit(fixCmd(os.Args[2:]))
 		case "--no-browser":
 			os.Exit(serve(false))
 		case "-h", "--help", "help":
-			fmt.Println("usage: quorum-studio [--no-browser | image <in.cb> [-o out.uf2] [-board pico2] | import <hazop|lopa|fmea> <file.csv>]")
+			fmt.Println("usage: quorum-studio [--no-browser | image <in.cb> [-o out.uf2] [-board pico2] | import <hazop|lopa|fmea> <file.csv>\n" +
+				"       | sheet <in.cb> [-o sheet.html] | bench <in.cb> -port COM3]")
 			return
 		}
 	}
@@ -77,6 +89,133 @@ func openBrowser(url string) {
 		cmd = exec.Command("xdg-open", url)
 	}
 	_ = cmd.Start()
+}
+
+// checkedSheet checks a rulebook and returns its commissioning sheet; a refused rulebook has none.
+func checkedSheet(in string) (bench.Sheet, int) {
+	src, err := os.ReadFile(in)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return bench.Sheet{}, 2
+	}
+	c, err := pipeline.Check(context.Background(), string(src))
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return bench.Sheet{}, 2
+	}
+	if !c.OK {
+		fmt.Println(c.Output)
+		fmt.Println("\nREFUSED: a rulebook that fails its check has no commissioning sheet.")
+		return bench.Sheet{}, 1
+	}
+	sh, err := bench.Parse(c.Sheet)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return bench.Sheet{}, 2
+	}
+	return sh, 0
+}
+
+func sheetCmd(args []string) int {
+	fs := flag.NewFlagSet("sheet", flag.ContinueOnError)
+	out := fs.String("o", "", "output .html (default: <casebook>-commissioning.html)")
+	if len(args) < 1 {
+		fmt.Fprintln(os.Stderr, "usage: quorum-studio sheet <in.cb> [-o sheet.html]")
+		return 2
+	}
+	if err := fs.Parse(args[1:]); err != nil {
+		return 2
+	}
+	sh, rc := checkedSheet(args[0])
+	if rc != 0 {
+		return rc
+	}
+	if *out == "" {
+		*out = pipeline.CasebookName(args[0]) + "-commissioning.html"
+	}
+	if err := os.WriteFile(*out, []byte(sh.HTML(filepath.Base(args[0]))), 0o644); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
+	fmt.Printf("wrote %s: %d readings to check on the plant\n", *out, len(sh.Rows))
+	return 0
+}
+
+func benchCmd(args []string) int {
+	fs := flag.NewFlagSet("bench", flag.ContinueOnError)
+	port := fs.String("port", "", "the board's serial port: COM3, /dev/ttyACM0, /dev/cu.usbmodem1101")
+	if len(args) < 1 {
+		fmt.Fprintln(os.Stderr, "usage: quorum-studio bench <in.cb> -port <serial port>")
+		return 2
+	}
+	if err := fs.Parse(args[1:]); err != nil {
+		return 2
+	}
+	if *port == "" {
+		fmt.Fprintln(os.Stderr, "give the board's serial port with -port")
+		return 2
+	}
+	sh, rc := checkedSheet(args[0])
+	if rc != 0 {
+		return rc
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+	r, err := bench.Run(ctx, *port, sh)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	for _, st := range r.Steps {
+		mark := "PASS"
+		if !st.Pass {
+			mark = "FAIL"
+		}
+		fmt.Printf("%s  %-60s expect %-16s board %s\n", mark, st.Label, st.Expect, st.Got)
+	}
+	fmt.Printf("\nboard on %s, image 0x%08x: %d of %d states as the sheet says\n", r.Port, r.Fingerprint, r.Passed,
+		r.Passed+r.Failed)
+	if r.Failed > 0 {
+		return 1
+	}
+	return 0
+}
+
+func fixCmd(args []string) int {
+	fs := flag.NewFlagSet("fix-sensors", flag.ContinueOnError)
+	out := fs.String("o", "", "output .cb (default: print it)")
+	if len(args) < 1 {
+		fmt.Fprintln(os.Stderr, "usage: quorum-studio fix-sensors <in.cb> [-o out.cb]")
+		return 2
+	}
+	if err := fs.Parse(args[1:]); err != nil {
+		return 2
+	}
+	src, err := os.ReadFile(args[0])
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
+	r, err := fix.SensorChecks(string(src))
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	for _, a := range r.Added {
+		fmt.Fprintf(os.Stderr, "%s: if its instrument fails -> %s\n", a.Reading, a.Action)
+	}
+	for _, x := range r.Skipped {
+		fmt.Fprintln(os.Stderr, "left alone: "+x)
+	}
+	if *out == "" {
+		fmt.Print(r.Source)
+		return 0
+	}
+	if err := os.WriteFile(*out, []byte(r.Source), 0o644); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
+	return 0
 }
 
 func imageCmd(args []string) int {

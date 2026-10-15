@@ -1,0 +1,62 @@
+casebook c-46cfr-63_15-7-and-63_25-1-boiler-draft v1
+source "C-46cfr-63.15-7-and-63.25-1-boiler.txt" dated 2026-10-14 by "drafted by anthropic/claude-sonnet-5.5 from the manual; not yet approved"
+note "UNAPPROVED DRAFT: written by a language model from C-46cfr-63.15-7-and-63.25-1-boiler.txt. Every declaration below cites the sentence"
+note "it came from. Check each against the manual, add what the manual does not say, then delete"
+note "this note to approve. quorum studio will not build a chip image while it is here."
+
+# manual: "An audible alarm must automatically sound when a flame safety system shutdown occurs."
+observe flame_safety_shutdown "a flame safety system shutdown has occurred"
+
+# manual: "For steam boilers, operation of the lower low water cutoff must automatically sound an audible alarm."
+observe lower_low_water_cutoff_operated "the lower low water cutoff of a steam boiler has operated"
+
+# manual: "Small automatic auxiliary boilers must be equipped with a visual indicator which indicates when the low water cutoff has activated."
+observe small_boiler_lwco_activated "the low water cutoff of a small automatic auxiliary boiler has activated"
+
+# manual: "A prepurge period of a sufficient duration to ensure at least four changes of air in the combustion chamber and stack, but not less than 15 seconds must be provided."
+observe start_requested "a start of the small auxiliary boiler has been requested"
+
+# manual: "A prepurge period of a sufficient duration to ensure at least four changes of air in the combustion chamber and stack, but not less than 15 seconds must be provided."
+observe prepurge_done "the prepurge period has been completed"
+
+# manual: "Ignition must occur only before or simultaneously with the opening of the fuel oil valve."
+observe fuel_valve_opening "the fuel oil valve is opening or open"
+
+# manual: "Ignition must occur only before or simultaneously with the opening of the fuel oil valve."
+observe ignition_present "ignition has occurred before or at the opening of the fuel oil valve"
+
+# manual: "An audible alarm must automatically sound when a flame safety system shutdown occurs."
+claim flame_shutdown_alarm "flame safety system shutdown requires an audible alarm and a visible indicator" severity 6 needs flame_safety_shutdown
+
+# manual: "For steam boilers, operation of the lower low water cutoff must automatically sound an audible alarm."
+claim low_water_alarm "lower low water cutoff operation requires an audible alarm and a visual indicator" severity 6 needs lower_low_water_cutoff_operated
+
+# manual: "Small automatic auxiliary boilers must be equipped with a visual indicator which indicates when the low water cutoff has activated."
+claim small_boiler_lwco_indication "low water cutoff activation on a small boiler must be indicated visually" severity 5 needs small_boiler_lwco_activated
+
+# manual: "Ignition must occur only before or simultaneously with the opening of the fuel oil valve."
+claim late_ignition "the fuel oil valve is opening without ignition before or simultaneously with it" severity 5 needs fuel_valve_opening
+
+# manual: "A prepurge period of a sufficient duration to ensure at least four changes of air in the combustion chamber and stack, but not less than 15 seconds must be provided."
+claim start_too_soon "a start of the small auxiliary boiler has been requested but the required prepurge of at least four air changes and not less than 15 seconds has not been completed" severity 5 needs start_requested
+
+# manual: "A prepurge period of a sufficient duration to ensure at least four changes of air in the combustion chamber and stack, but not less than 15 seconds must be provided."
+prepurge_done rebuts start_too_soon
+
+# manual: "Ignition must occur only before or simultaneously with the opening of the fuel oil valve."
+ignition_present rebuts late_ignition
+
+# manual: "An audible alarm must automatically sound when a flame safety system shutdown occurs."
+action raise_alarm when any flame_shutdown_alarm low_water_alarm small_boiler_lwco_indication
+
+# manual: "or less (117 kilowatts or less) must also meet the following requirements."
+action keep_running idle
+
+# manual: "A visible indicator must indicate that the shutdown was caused by the flame safety system."
+action stop_boiler safe when any flame_shutdown_alarm low_water_alarm
+
+# manual: "Ignition must occur only before or simultaneously with the opening of the fuel oil valve."
+action hold_start when any late_ignition
+
+# manual: "An audible alarm must automatically sound when a flame safety system shutdown occurs."
+prefer stop_boiler over hold_start over raise_alarm over keep_running

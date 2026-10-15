@@ -1,0 +1,49 @@
+# Answer keys, written 2026-10-14 BEFORE any model was given these documents. Scored by tools/score-draft.py.
+#
+# Checks are on BEHAVIOUR, never on names: a "reading for X" is any `observe` whose cited manual sentence contains
+# the text X (case-insensitive). The scorer evaluates the draft itself (tools/refcheck.py semantics), so a draft cbc
+# refuses can still be scored.
+#
+#   lead     <X> <class>    with the reading for X set, alone or with the fewest other readings (up to two) that make
+#                           it matter, the action chosen is of this class:
+#                             safe     the action marked safe
+#                             alarm    neither safe nor idle
+#                             nonidle  safe or alarm
+#   rest     -   idle       with nothing set, the idle action is chosen and it is not the safe one
+#   worst    <X>|<Y> safe   with both readings set, the safe action is chosen (shutdown outranks alarm)
+#   differ   <X>|<Y> -      the two readings lead to different actions
+#   excuse   <X>|<E> less   the reading for X leads to a non-idle action, and adding the reading for E changes it to
+#                           one that is not the safe action
+#   matters  <X> -          a reading for X exists and changes the decision with up to two other readings
+#
+# Where several readings cite matching sentences, the check passes if any one of them behaves as required.
+#   noaction <regex> -      no action's name matches the regex
+#
+# doc  id  check  args  expect  rule (plain words)
+A	1	lead	Overspeed	safe	overspeed -> automatic shutdown, (f)(1)(i)
+A	2	lead	Low lubricating oil pressure	safe	low lube oil pressure -> automatic shutdown, (f)(1)(ii)
+A	3	lead	Excessive gas temperature	alarm	excessive gas temperature -> alarm only, (f)(2)(i)
+A	4	lead	Excessive lubricating oil temperature	alarm	excessive lube oil temperature -> alarm only, (f)(2)(ii)
+A	5	lead	Excessive speed	alarm	excessive speed -> alarm only, (f)(2)(iii)
+A	6	lead	Reduced lubricating oil pressure	alarm	reduced lube oil pressure -> alarm only, (f)(2)(iv)
+A	7	lead	remote, manually operated shutdown	safe	the remote manual shutdown device -> shutdown, (f)(3)
+A	8	rest	-	idle	nothing wrong -> keep running
+A	9	worst	Overspeed|Excessive gas temperature	safe	shutdown outranks alarm
+A	10	excuse	Low lubricating oil pressure|antifriction bearings	less	with antifriction bearings fitted, low lube oil pressure may be alarm only, (f)(1)(ii)
+B	1	lead	control system of any steering gear	nonidle	control-system power failure -> pilothouse alarm, (d)(1)
+B	2	lead	power unit of any steering gear	nonidle	power-unit power failure -> pilothouse alarm, (d)(2)
+B	3	lead	low oil level	nonidle	low reservoir oil level -> alarm, (d)(3) and (e)(3)
+B	4	lead	Failure of any phase	nonidle	phase failure -> machinery-space alarm, (e)(1)
+B	5	lead	Overload of any motor	nonidle	motor overload -> machinery-space alarm, (e)(2)
+B	6	differ	control system of any steering gear|Failure of any phase	-	pilothouse alarm and machinery-space alarm are different actions
+B	7	rest	-	idle	nothing wrong -> keep steering
+B	8	noaction	stop|shut|trip|halt	-	no shutdown invented: the section requires alarms only, and steering must not stop
+C	1	lead	flame safety system	safe	flame safety system shutdown -> boiler shut down (fuel off), with alarm, 63.15-7(a)
+C	2	lead	low water cutoff	safe	low water cutoff operated -> boiler shut down, with alarm and indicator, 63.15-7(c), 63.25-1(a)
+C	3	matters	prepurge	-	prepurge: ignition is held until the prepurge period is complete, 63.25-1(b)
+C	4	rest	-	idle	nothing wrong -> keep firing
+D	1	lead	10 parts per million	nonidle	CO 10 ppm above ambient at a sensor -> warning signal and response, (a), (f)
+D	2	excuse	10 parts per million|does not present a hazard	less	the operator determining the signal is no hazard excuses the withdrawal, (f)
+D	3	lead	inoperative	nonidle	a fire detection component inoperative -> repair, belt only with monitoring, (h)
+D	4	excuse	inoperative|continuously monitor	less	continuous monitoring by a trained person lets the belt continue, (h)(1)
+D	5	rest	-	idle	nothing wrong -> belt runs

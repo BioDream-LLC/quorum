@@ -1,0 +1,48 @@
+casebook scale18 v1
+source "synthetic scaling test" dated 2026-10-14 by "quorum tests"
+observe f0 "fault 0"
+observe c0 "check 0"
+observe s0 "sensor 0 failed"
+claim fault0 "fault 0 present" needs f0
+c0 rebuts fault0
+s0 undercuts fault0
+claim blind0 "sensor 0 cannot be trusted" needs s0
+observe f1 "fault 1"
+observe c1 "check 1"
+observe s1 "sensor 1 failed"
+claim fault1 "fault 1 present" needs f1
+c1 rebuts fault1
+s1 undercuts fault1
+claim blind1 "sensor 1 cannot be trusted" needs s1
+observe f2 "fault 2"
+observe c2 "check 2"
+observe s2 "sensor 2 failed"
+claim fault2 "fault 2 present" needs f2
+c2 rebuts fault2
+s2 undercuts fault2
+claim blind2 "sensor 2 cannot be trusted" needs s2
+observe f3 "fault 3"
+observe c3 "check 3"
+observe s3 "sensor 3 failed"
+claim fault3 "fault 3 present" needs f3
+c3 rebuts fault3
+s3 undercuts fault3
+claim blind3 "sensor 3 cannot be trusted" needs s3
+observe f4 "fault 4"
+observe c4 "check 4"
+observe s4 "sensor 4 failed"
+claim fault4 "fault 4 present" needs f4
+c4 rebuts fault4
+s4 undercuts fault4
+claim blind4 "sensor 4 cannot be trusted" needs s4
+observe f5 "fault 5"
+observe c5 "check 5"
+observe s5 "sensor 5 failed"
+claim fault5 "fault 5 present" needs f5
+c5 rebuts fault5
+s5 undercuts fault5
+claim blind5 "sensor 5 cannot be trusted" needs s5
+action run idle
+action stop safe when any fault0 fault2 fault4
+action alarm when any blind0 fault1 blind1 blind2 fault3 blind3 blind4 fault5 blind5
+prefer stop over alarm over run

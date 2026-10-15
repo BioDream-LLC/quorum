@@ -1,0 +1,48 @@
+REVIEW -- what the checks cannot decide. Start here.
+
+draft as a whole: no structural problems found
+
+what can stop the safe action (each may be right; a person must decide):
+  CAUTION  operator_cleared can stop withdraw_miners (the safe action) for evacuation_needed. Check that the manual means this, in every case listed: "unless the mine operator determines that the signal does not present a hazard to miners"
+  CAUTION  assigned_emergency_duty can stop withdraw_miners (the safe action) for evacuation_needed. Check that the manual means this, in every case listed: "unless assigned emergency response duties"
+
+rules to check first (a real quote does not mean a real rule):
+  FLAG     attack examination_made rebuts monitoring_required
+           its quote never mentions monitoring_required: either the manual does not say this, or it says it in another sentence and this is the wrong citation
+           quote: "unless an examination for hot rollers and fire is made as prescribed in § 75.1103-4(e)"
+  FLAG     claim evacuation_needed
+           its quote never mentions evacuation_needed: either the manual does not say this, or it says it in another sentence and this is the wrong citation
+           quote: "If any sensor indicates a warning, the following actions must be taken"
+  FLAG     claim miner_notice_needed
+           its quote never mentions sensor_warning: either the manual does not say this, or it says it in another sentence and this is the wrong citation
+           quote: "Appropriate personnel must notify miners in affected working sections, in affected areas where mechanized mining equipment is being installed or removed, and at other locations specified in the approved mine emergency evacuation and firefighting program of instruction"
+  FLAG     attack assigned_emergency_duty undercuts evacuation_needed
+           its quote never mentions evacuation_needed: either the manual does not say this, or it says it in another sentence and this is the wrong citation
+           quote: "unless assigned emergency response duties"
+  FLAG     claim miner_notice_needed
+           its quote mentions emergency_response_duty, operator_knows_source_safe, operator_no_hazard, but the rule neither needs it nor is argued against by it: a condition in the sentence (often a 'not') may be missing
+           quote: "Appropriate personnel must notify miners in affected working sections, in affected areas where mechanized mining equipment is being installed or removed, and at other locations specified in the approved mine emergency evacuation and firefighting program of instruction"
+  FLAG     claim calibration_notice_needed
+           its quote mentions signal_received, but the rule neither needs it nor is argued against by it: a condition in the sentence (often a 'not') may be missing
+           quote: "personnel manning the surface location must be notified prior to and upon completion of calibration"
+  FLAG     claim sensor_monitoring_needed
+           its quote mentions co_high, monitoring_in_progress, operator_knows_source_safe, but the rule neither needs it nor is argued against by it: a condition in the sentence (often a 'not') may be missing
+           quote: "If one sensor becomes inoperative, a trained person must continuously monitor for carbon monoxide at the inoperative sensor"
+  FLAG     claim area_patrol_needed
+           its quote mentions co_high, monitoring_in_progress, operator_knows_source_safe, but the rule neither needs it nor is argued against by it: a condition in the sentence (often a 'not') may be missing
+           quote: "If two or more adjacent sensors become inoperative, trained persons must patrol and continuously monitor the affected areas for carbon monoxide so that they will be traveled each hour in their entirety"
+  FLAG     claim system_patrol_needed
+           its quote mentions co_high, monitoring_in_progress, operator_knows_source_safe, but the rule neither needs it nor is argued against by it: a condition in the sentence (often a 'not') may be missing
+           quote: "If the complete fire detection system becomes inoperative, trained persons must patrol and continuously monitor the affected areas for carbon monoxide so that they will be traveled each hour in their entirety"
+  FLAG     claim detector_level_needed
+           its quote mentions co_high, monitoring_in_progress, operator_knows_source_safe, but the rule neither needs it nor is argued against by it: a condition in the sentence (often a 'not') may be missing
+           quote: "Handheld detectors used to monitor the belt entry under this section must have a detection level equivalent to that of the system's carbon monoxide sensors"
+
+manual sentences no rule cites (6 of 17). A missing rule is usually in here, but not
+always: a sentence cited for one rule can state another that is still missing.
+  - 1103-5 Automatic fire warning devices; actions and response.
+  - (2) At a manned surface location where personnel have an assigned post of duty.
+  - The manned surface location must have: (i) A telephone or equivalent communication with all miners who may be endangered and (ii) A map or schematic that shows the locations of sensors, and the intended air flow direction at these locations.
+  - (b) The fire sensor and warning device system shall include a means for rapid evaluation of electrical short and open circuits, ground faults, pneumatic leaks, or other defect detrimental to its proper operational condition.
+  - (c) Automatic fire sensor and warning devices shall include a manual reset feature.
+  - 16, 1972, as amended at 73 FR 80615, Dec.

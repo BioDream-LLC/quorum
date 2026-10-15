@@ -7,13 +7,17 @@
 // the first place the competition solver's speed actually pays for itself -- exhaustive validation of KNOWLEDGE is
 // only affordable because solving is nearly free.
 
+#include <algorithm>
 #include <cstdint>
+#include <cstdlib>
 #include <cstdio>
 #include <set>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "quorum/arbiter/verdict.hpp"
@@ -48,6 +52,7 @@ struct Options {
     bool quiet = false;
     bool symbolic = false;
     std::string certificate_out;
+    std::string commissioning_out;
 };
 
 [[nodiscard]] bool read_file(const std::string& path, std::string& out) {
@@ -207,101 +212,208 @@ struct Options {
     Example conflict_example;
     Example unsatisfied_example;
 
-    for (std::uint32_t mask = 0; mask < total; ++mask) {
-        HostFramework fw;
-        HostSolver solver;
-        if (build(fw, lo, mask) != Status::Ok) {
-            std::cerr << "error: framework construction failed at state " << mask << "\n";
+    // Every state is independent of every other, so the states are split into contiguous ranges, one per hardware
+    // thread, and the per-range results are merged IN RANGE ORDER. That order makes the result identical to a single
+    // thread's: sums are sums, the worst case keeps the lowest state that reaches it (strictly-greater updates within
+    // a range, earlier range wins a tie), and "first example" means the first in state order. The emitted header,
+    // and so every fingerprint, does not depend on the number of threads. Measured 2026-10-14 on synthetic
+    // rulebooks: one thread first checked about 370,000 states a second (24 readings: 46 s); reusing the framework
+    // per thread and 16 threads brought it to about 1.2 million a
+    // second per thread, and 30 readings (a billion states) to 2 minutes on a 16-thread PC. QUORUM_THREADS=<n> overrides the count (1 gives the old single-threaded walk).
+    struct Acc {
+        std::int32_t counts[5] = {0, 0, 0, 0, 0};
+        std::int32_t max_steps = 0;
+        std::uint32_t max_steps_mask = 0;
+        std::int32_t max_steps_edges = 0;
+        std::int32_t conflicted = 0, unsatisfied = 0, faulted = 0, wcet_breaches = 0, undecided_doubts = 0;
+        std::string undecided_doubt_example;
+        std::int32_t indet_instrument = 0, indet_genuine = 0;
+        std::vector<std::uint32_t> genuine_examples;
+        std::int32_t unreachable = 0, indet_unreachable = 0;
+        std::vector<std::int32_t> consistency_fired, action_selected, action_selected_reachable;
+        std::vector<std::int32_t> claim_in_reachable, claim_in_unreachable;
+        Example conflict_example, unsatisfied_example;
+        bool build_failed = false;
+        std::uint32_t build_failed_mask = 0;
+    };
+    auto scan = [&](Acc& A, std::uint32_t first, std::uint32_t last) {
+        A.consistency_fired.assign(lo.consistency_doubts.size(), 0);
+        A.action_selected.assign(lo.actions.size(), 0);
+        A.action_selected_reachable.assign(lo.actions.size(), 0);
+        A.claim_in_reachable.assign(static_cast<std::size_t>(lo.count()), 0);
+        A.claim_in_unreachable.assign(static_cast<std::size_t>(lo.count()), 0);
+        // One framework and solver per thread, reset for each state, the way the firmware reuses its own every
+        // cycle. Constructing them fresh zero-filled 100 KB per state, which was most of the time spent.
+        const auto fw_box = std::make_unique<HostFramework>();
+        const auto solver_box = std::make_unique<HostSolver>();
+        HostFramework& fw = *fw_box;
+        HostSolver& solver = *solver_box;
+        for (std::uint32_t mask = first; mask < last; ++mask) {
+            fw.reset();
+            if (build(fw, lo, mask) != Status::Ok) {
+                A.build_failed = true;
+                A.build_failed_mask = mask;
+                return;
+            }
+
+            const quorum::arbiter::Verdict v = quorum::arbiter::decide(fw, solver, policy);
+            ++A.counts[static_cast<std::size_t>(v.outcome)];
+            if (v.steps > A.max_steps) {
+                A.max_steps = v.steps;
+                A.max_steps_mask = mask;
+                A.max_steps_edges = fw.attack_count();
+            }
+
+            const bool reachable = reachable_given_binding(lo, mask);
+            if (!reachable) { ++A.unreachable; }
+
+            for (std::int32_t a = 0; a < lo.count(); ++a) {
+                if (solver.label(Arg{a}) != quorum::solver::Label::In) { continue; }
+                if (reachable) {
+                    ++A.claim_in_reachable[static_cast<std::size_t>(a)];
+                } else {
+                    ++A.claim_in_unreachable[static_cast<std::size_t>(a)];
+                }
+            }
+
+            if (v.outcome == Outcome::Decided) {
+                for (std::size_t k = 0; k < lo.actions.size(); ++k) {
+                    if (v.action == Arg{lo.actions[k]}) {
+                        ++A.action_selected[k];
+                        // Separately over the states the declared binding can actually produce. Reporting only the whole
+                        // input space is misleading, and badly so: the voting casebook showed `trip` at 88.3% of all
+                        // states, which reads as a wildly trip-happy casebook, because most of those states require a
+                        // transmitter to be simultaneously unavailable and reporting a value. An author would either panic
+                        // or start weakening real safety logic to chase a number that describes impossible plants.
+                        if (reachable) { ++A.action_selected_reachable[k]; }
+                    }
+                }
+            }
+
+            if (v.outcome == Outcome::Conflicted) {
+                ++A.conflicted;
+                if (!A.conflict_example.have) {
+                    A.conflict_example.have = true;
+                    A.conflict_example.mask = mask;
+                    for (const std::int32_t a : lo.actions) {
+                        if (solver.label(Arg{a}) == Label::In) { A.conflict_example.actions.push_back(a); }
+                    }
+                }
+            }
+            if (v.outcome == Outcome::Unsatisfied) {
+                ++A.unsatisfied;
+                if (!A.unsatisfied_example.have) {
+                    A.unsatisfied_example.have = true;
+                    A.unsatisfied_example.mask = mask;
+                }
+            }
+            if (v.outcome == Outcome::Faulted) { ++A.faulted; }
+            if (v.steps > HostSolver::step_bound(fw.argument_count(), fw.attack_count())) { ++A.wcet_breaches; }
+
+            for (std::size_t k = 0; k < lo.consistency_doubts.size(); ++k) {
+                if (solver.label(Arg{lo.consistency_doubts[k]}) == Label::In) { ++A.consistency_fired[k]; }
+            }
+
+            // A doubt that is Undecided means an odd cycle survived lowering -- the silent failure the raw/claim split
+            // exists to prevent. Cheap to detect, and catastrophic to miss.
+            for (std::int32_t i = 0; i < lo.count(); ++i) {
+                if (lo.arguments[static_cast<std::size_t>(i)].role != quorum::cbc::Role::Doubt) { continue; }
+                if (solver.label(Arg{i}) == Label::Undecided) {
+                    ++A.undecided_doubts;
+                    if (A.undecided_doubt_example.empty()) {
+                        A.undecided_doubt_example = lo.arguments[static_cast<std::size_t>(i)].name;
+                    }
+                }
+            }
+
+            if (v.outcome == Outcome::Indeterminate) {
+                bool instrument_fault = false;
+                for (const auto& group : lo.exclusive_groups) {
+                    bool all_present = true;
+                    for (const std::int32_t m : group) {
+                        if ((mask & (1U << static_cast<std::uint32_t>(m))) == 0U) { all_present = false; }
+                    }
+                    if (all_present) { instrument_fault = true; }
+                }
+                if (instrument_fault) {
+                    ++A.indet_instrument;
+                } else {
+                    ++A.indet_genuine;
+                    if (A.genuine_examples.size() < 3) { A.genuine_examples.push_back(mask); }
+                }
+                if (!reachable) { ++A.indet_unreachable; }
+            }
+        }
+    };
+
+    std::uint32_t threads = std::max(1U, std::thread::hardware_concurrency());
+    if (const char* env = std::getenv("QUORUM_THREADS")) {
+        const long n = std::strtol(env, nullptr, 10);
+        if (n >= 1 && n <= 1024) { threads = static_cast<std::uint32_t>(n); }
+    }
+    if (total < (1U << 14)) { threads = 1; }  // a few thousand states: starting threads costs more than it saves
+    threads = std::min(threads, total);
+    if (!quiet && total >= (1U << 22)) {
+        std::printf("\nchecking %u states on %u threads (roughly %u s)...\n", total, threads,
+                    1U + total / 600000U / threads);
+        std::fflush(stdout);
+    }
+    std::vector<Acc> parts(threads);
+    {
+        std::vector<std::thread> pool;
+        const std::uint64_t per = (static_cast<std::uint64_t>(total) + threads - 1) / threads;
+        for (std::uint32_t t = 0; t < threads; ++t) {
+            const auto first = static_cast<std::uint32_t>(std::min<std::uint64_t>(t * per, total));
+            const auto last = static_cast<std::uint32_t>(std::min<std::uint64_t>((t + 1) * per, total));
+            if (t + 1 == threads) {
+                scan(parts[t], first, last);  // the calling thread takes the last range
+            } else {
+                pool.emplace_back([&scan, &parts, t, first, last] { scan(parts[t], first, last); });
+            }
+        }
+        for (std::thread& th : pool) { th.join(); }
+    }
+    for (const Acc& A : parts) {
+        if (A.build_failed) {
+            std::cerr << "error: framework construction failed at state " << A.build_failed_mask << "\n";
             return false;
         }
-
-        const quorum::arbiter::Verdict v = quorum::arbiter::decide(fw, solver, policy);
-        ++counts[static_cast<std::size_t>(v.outcome)];
-        if (v.steps > max_steps) {
-            max_steps = v.steps;
-            max_steps_mask = mask;
-            max_steps_edges = fw.attack_count();
+    }
+    consistency_fired.assign(lo.consistency_doubts.size(), 0);
+    action_selected.assign(lo.actions.size(), 0);
+    action_selected_reachable.assign(lo.actions.size(), 0);
+    claim_in_reachable.assign(static_cast<std::size_t>(lo.count()), 0);
+    claim_in_unreachable.assign(static_cast<std::size_t>(lo.count()), 0);
+    auto add = [](std::vector<std::int32_t>& into, const std::vector<std::int32_t>& from) {
+        for (std::size_t i = 0; i < into.size(); ++i) { into[i] += from[i]; }
+    };
+    for (const Acc& A : parts) {  // in range order: see above
+        for (int i = 0; i < 5; ++i) { counts[i] += A.counts[i]; }
+        if (A.max_steps > max_steps) {
+            max_steps = A.max_steps;
+            max_steps_mask = A.max_steps_mask;
+            max_steps_edges = A.max_steps_edges;
         }
-
-        const bool reachable = reachable_given_binding(lo, mask);
-        if (!reachable) { ++unreachable; }
-
-        for (std::int32_t a = 0; a < lo.count(); ++a) {
-            if (solver.label(Arg{a}) != quorum::solver::Label::In) { continue; }
-            if (reachable) {
-                ++claim_in_reachable[static_cast<std::size_t>(a)];
-            } else {
-                ++claim_in_unreachable[static_cast<std::size_t>(a)];
-            }
+        conflicted += A.conflicted;
+        unsatisfied += A.unsatisfied;
+        faulted += A.faulted;
+        wcet_breaches += A.wcet_breaches;
+        undecided_doubts += A.undecided_doubts;
+        if (undecided_doubt_example.empty()) { undecided_doubt_example = A.undecided_doubt_example; }
+        indet_instrument += A.indet_instrument;
+        indet_genuine += A.indet_genuine;
+        for (const std::uint32_t m : A.genuine_examples) {
+            if (genuine_examples.size() < 3) { genuine_examples.push_back(m); }
         }
-
-        if (v.outcome == Outcome::Decided) {
-            for (std::size_t k = 0; k < lo.actions.size(); ++k) {
-                if (v.action == Arg{lo.actions[k]}) {
-                    ++action_selected[k];
-                    // Separately over the states the declared binding can actually produce. Reporting only the whole
-                    // input space is misleading, and badly so: the voting casebook showed `trip` at 88.3% of all
-                    // states, which reads as a wildly trip-happy casebook, because most of those states require a
-                    // transmitter to be simultaneously unavailable and reporting a value. An author would either panic
-                    // or start weakening real safety logic to chase a number that describes impossible plants.
-                    if (reachable) { ++action_selected_reachable[k]; }
-                }
-            }
-        }
-
-        if (v.outcome == Outcome::Conflicted) {
-            ++conflicted;
-            if (!conflict_example.have) {
-                conflict_example.have = true;
-                conflict_example.mask = mask;
-                for (const std::int32_t a : lo.actions) {
-                    if (solver.label(Arg{a}) == Label::In) { conflict_example.actions.push_back(a); }
-                }
-            }
-        }
-        if (v.outcome == Outcome::Unsatisfied) {
-            ++unsatisfied;
-            if (!unsatisfied_example.have) {
-                unsatisfied_example.have = true;
-                unsatisfied_example.mask = mask;
-            }
-        }
-        if (v.outcome == Outcome::Faulted) { ++faulted; }
-        if (v.steps > HostSolver::step_bound(fw.argument_count(), fw.attack_count())) { ++wcet_breaches; }
-
-        for (std::size_t k = 0; k < lo.consistency_doubts.size(); ++k) {
-            if (solver.label(Arg{lo.consistency_doubts[k]}) == Label::In) { ++consistency_fired[k]; }
-        }
-
-        // A doubt that is Undecided means an odd cycle survived lowering -- the silent failure the raw/claim split
-        // exists to prevent. Cheap to detect, and catastrophic to miss.
-        for (std::int32_t i = 0; i < lo.count(); ++i) {
-            if (lo.arguments[static_cast<std::size_t>(i)].role != quorum::cbc::Role::Doubt) { continue; }
-            if (solver.label(Arg{i}) == Label::Undecided) {
-                ++undecided_doubts;
-                if (undecided_doubt_example.empty()) {
-                    undecided_doubt_example = lo.arguments[static_cast<std::size_t>(i)].name;
-                }
-            }
-        }
-
-        if (v.outcome == Outcome::Indeterminate) {
-            bool instrument_fault = false;
-            for (const auto& group : lo.exclusive_groups) {
-                bool all_present = true;
-                for (const std::int32_t m : group) {
-                    if ((mask & (1U << static_cast<std::uint32_t>(m))) == 0U) { all_present = false; }
-                }
-                if (all_present) { instrument_fault = true; }
-            }
-            if (instrument_fault) {
-                ++indet_instrument;
-            } else {
-                ++indet_genuine;
-                if (genuine_examples.size() < 3) { genuine_examples.push_back(mask); }
-            }
-            if (!reachable) { ++indet_unreachable; }
-        }
+        unreachable += A.unreachable;
+        indet_unreachable += A.indet_unreachable;
+        add(consistency_fired, A.consistency_fired);
+        add(action_selected, A.action_selected);
+        add(action_selected_reachable, A.action_selected_reachable);
+        add(claim_in_reachable, A.claim_in_reachable);
+        add(claim_in_unreachable, A.claim_in_unreachable);
+        if (!conflict_example.have) { conflict_example = A.conflict_example; }
+        if (!unsatisfied_example.have) { unsatisfied_example = A.unsatisfied_example; }
     }
 
     if (!quiet) {
@@ -988,6 +1100,136 @@ struct Options {
 ///
 /// The rounds are computed here by synchronous iteration, independently of the device solver, and the result is
 /// compared against `solver::Grounded` argument by argument before anything is written.
+/// The commissioning sheet: what the device must do with each reading on its own, for a person to confirm on the real
+/// plant. Exhaustive validation proves the logic over every combination; it cannot prove that the wire labelled
+/// "overspeed" is the overspeed switch, that a threshold is set where the document says, or that the controller writes
+/// the right bit. That is what a loop check is for, so this writes one line per reading -- set it alone, every other
+/// reading at rest, and this is the action that must follow -- plus the at-rest line itself. Many readings change
+/// nothing alone (a rule needs two of them), so each line also gives the fewest other readings with which this one
+/// DOES change the decision, and the action with and without it. "-" if no set of up to three others does.
+/// Tab-separated, so the studio and a spreadsheet can both read it:
+///
+///     quorum-commissioning 1
+///     casebook <name> v<n>
+///     fingerprint 0x........
+///     actions  <name> ...          (in the order the device numbers them)
+///     channels <count>
+///     rest  <action>  <outcome>
+///     row   <bit>  <name>  <how it is set>  <action alone>  <outcome alone>  <with: a+b, "alone" or ->
+///           <action with them and this reading>  <action with them only>  <description>
+[[nodiscard]] bool write_commissioning(const quorum::cbc::Lowered& lo, const std::string& path) {
+    std::ofstream out(path, std::ios::binary);
+    if (!out) {
+        std::cerr << "error: cannot write '" << path << "'\n";
+        return false;
+    }
+    HostPolicy policy;
+    if (make_policy(policy, lo) != Status::Ok) { return false; }
+    const auto fw = std::make_unique<HostFramework>();
+    const auto solver = std::make_unique<HostSolver>();
+    auto decide = [&](std::uint32_t mask, std::string& action, std::string& outcome) {
+        fw->reset();
+        if (build(*fw, lo, mask) != Status::Ok) { return false; }
+        const quorum::arbiter::Verdict v = quorum::arbiter::decide(*fw, *solver, policy);
+        if (!v.action.valid()) { return false; }
+        action = lo.arguments[static_cast<std::size_t>(v.action.get())].name;
+        outcome = outcome_name(v.outcome);
+        return true;
+    };
+    auto clean = [](std::string t) {
+        for (char& c : t) {
+            if (c == '\t' || c == '\n' || c == '\r') { c = ' '; }
+        }
+        return t;
+    };
+    auto milli = [](std::int32_t v) {
+        char b[32];
+        std::snprintf(b, sizeof b, "%g", static_cast<double>(v) / 1000.0);
+        return std::string(b);
+    };
+    char fp[16];
+    std::snprintf(fp, sizeof fp, "0x%08x", quorum::cbc::fingerprint(lo));
+    out << "quorum-commissioning 1\ncasebook " << lo.casebook << " v" << lo.version << "\nfingerprint " << fp << "\n";
+    out << "actions";  // in the order the device numbers them (Modbus reports an action as its position here)
+    for (const std::int32_t a : lo.actions) { out << "\t" << lo.arguments[static_cast<std::size_t>(a)].name; }
+    out << "\nchannels\t" << lo.channels.size() << "\n";
+    std::string action;
+    std::string outcome;
+    if (!decide(0, action, outcome)) { return false; }
+    out << "rest\t" << action << "\t" << outcome << "\n";
+    for (std::int32_t b = 0; b < lo.observation_count; ++b) {
+        const quorum::cbc::LoweredArgument& a = lo.arguments[static_cast<std::size_t>(b)];
+        std::string how = "presence bit " + std::to_string(b);
+        for (const quorum::cbc::LoweredThreshold& t : lo.thresholds) {
+            if (t.observation != b) { continue; }
+            const quorum::cbc::LoweredChannel& ch = lo.channels[static_cast<std::size_t>(t.channel)];
+            how = "channel " + ch.name + (t.above ? " above " : " below ") + milli(t.on) + " " + ch.unit +
+                  " (clears at " + milli(t.off) + ")";
+            if (t.hold_ms > 0) { how += " for " + std::to_string(t.hold_ms / 1000U) + " s"; }
+        }
+        for (const quorum::cbc::LoweredChannel& ch : lo.channels) {
+            if (ch.unavailable_obs == b) {
+                how = "channel " + ch.name + " unavailable (out of range " + milli(ch.valid_lo) + " to " +
+                      milli(ch.valid_hi) + " " + ch.unit + ", or no sample for " +
+                      std::to_string(ch.stale_after_ms / 1000U) + " s)";
+            }
+            if (ch.flatline_obs == b) {
+                how = "channel " + ch.name + " flatline (moves less than " + milli(ch.flatline_epsilon) + " " +
+                      ch.unit + " in " + std::to_string(ch.flatline_after_ms / 60000U) + " min)";
+            }
+        }
+        const std::uint32_t bit = 1U << static_cast<std::uint32_t>(b);
+        if (!decide(bit, action, outcome)) { return false; }
+        // The smallest set of other readings with which this one changes the decision: setting it then shows, on the
+        // real plant, that it arrives and matters. Up to three others, fewest first, then lowest bits first.
+        std::string with = "-";
+        std::string then_action = "-";
+        std::string without_action = "-";
+        const std::int32_t n = lo.observation_count;
+        std::vector<std::int32_t> others;
+        for (std::int32_t k = 0; k < n; ++k) {
+            if (k != b) { others.push_back(k); }
+        }
+        bool found = false;
+        for (std::int32_t size = 0; size <= 3 && !found && size <= static_cast<std::int32_t>(others.size()); ++size) {
+            std::vector<std::int32_t> pick(static_cast<std::size_t>(size));
+            for (std::int32_t i = 0; i < size; ++i) { pick[static_cast<std::size_t>(i)] = i; }
+            while (!found) {
+                std::uint32_t m = 0;
+                for (const std::int32_t i : pick) {
+                    m |= 1U << static_cast<std::uint32_t>(others[static_cast<std::size_t>(i)]);
+                }
+                std::string a1, o1, a0, o0;
+                if (!decide(m | bit, a1, o1) || !decide(m, a0, o0)) { return false; }
+                if (a1 != a0) {
+                    found = true;
+                    then_action = a1;
+                    without_action = a0;
+                    with.clear();
+                    for (const std::int32_t i : pick) {
+                        if (!with.empty()) { with += "+"; }
+                        with += lo.arguments[static_cast<std::size_t>(others[static_cast<std::size_t>(i)])].name;
+                    }
+                    if (with.empty()) { with = "alone"; }
+                    break;
+                }
+                // next combination of `size` out of others.size()
+                std::int32_t i = size - 1;
+                const auto total_others = static_cast<std::int32_t>(others.size());
+                while (i >= 0 && pick[static_cast<std::size_t>(i)] == total_others - size + i) { --i; }
+                if (i < 0) { break; }
+                ++pick[static_cast<std::size_t>(i)];
+                for (std::int32_t j = i + 1; j < size; ++j) {
+                    pick[static_cast<std::size_t>(j)] = pick[static_cast<std::size_t>(j - 1)] + 1;
+                }
+            }
+        }
+        out << "row\t" << b << "\t" << a.name << "\t" << clean(how) << "\t" << action << "\t" << outcome << "\t"
+            << with << "\t" << then_action << "\t" << without_action << "\t" << clean(a.description) << "\n";
+    }
+    return out.good();
+}
+
 [[nodiscard]] bool write_certificate(const quorum::cbc::Lowered& lo, const std::string& path) {
     std::ofstream out(path, std::ios::binary);
     if (!out) {
@@ -1161,6 +1403,7 @@ void usage() {
                  "  --blob <path>     emit the data image for the prebuilt runtime firmware (needs validation)\n"
                  "  --no-validate     skip exhaustive validation\n"
                  "  --certificate <p> write a proof certificate of every state, checkable by tools/qcert alone\n"
+                 "  --commissioning <p> write the loop-check sheet: the action each reading must cause on its own\n"
                  "  --symbolic        also validate every state at once with decision diagrams (fast for large\n"
                  "                    casebooks and whole palettes; proves palette non-interference)\n"
                  "  --quiet           only report problems\n";
@@ -1193,6 +1436,8 @@ int main(int argc, char** argv) {
             opt.validate = false;
         } else if (a == "--certificate") {
             opt.certificate_out = next("--certificate");
+        } else if (a == "--commissioning") {
+            opt.commissioning_out = next("--commissioning");
         } else if (a == "--symbolic") {
             opt.symbolic = true;
         } else if (a == "--quiet") {
@@ -1274,6 +1519,10 @@ int main(int argc, char** argv) {
         }
     }
 
+    if (opt.palette && !opt.commissioning_out.empty()) {
+        std::cerr << "error: --commissioning covers one casebook; write a sheet for each member\n";
+        return 2;
+    }
     if (opt.palette && !opt.certificate_out.empty()) {
         std::cerr << "error: --certificate covers one casebook; certify each member separately (the palette checks "
                      "show the merge preserves each exactly)\n";
@@ -1335,6 +1584,14 @@ int main(int argc, char** argv) {
             return 2;
         }
         if (!write_certificate(lo, opt.certificate_out)) { return 2; }
+    }
+
+    if (!opt.commissioning_out.empty()) {
+        if (!opt.validate) {
+            std::cerr << "error: --commissioning refuses --no-validate: the sheet is for a validated casebook\n";
+            return 2;
+        }
+        if (!write_commissioning(lo, opt.commissioning_out)) { return 2; }
     }
 
     if (!opt.blob_out.empty()) {

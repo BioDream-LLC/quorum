@@ -17,7 +17,8 @@ target_link_libraries(quorum_cbc PUBLIC quorum_solver quorum_arbiter)
 target_compile_features(quorum_cbc PUBLIC cxx_std_17)
 
 add_executable(cbc src/main.cpp)
-target_link_libraries(cbc PRIVATE quorum_cbc)
+find_package(Threads REQUIRED)  # exhaustive validation splits the states across threads
+target_link_libraries(cbc PRIVATE quorum_cbc Threads::Threads)
 
 add_executable(test_cbc test/test_cbc.cpp)
 target_link_libraries(test_cbc PRIVATE quorum_cbc)
@@ -107,6 +108,20 @@ add_test(NAME compiler_pump_e2e
 add_test(NAME compiler_tank_e2e
     COMMAND cbc ${CMAKE_CURRENT_SOURCE_DIR}/../tank/tank.cb
             --header ${CMAKE_CURRENT_BINARY_DIR}/tank_e2e.hpp)
+
+# A second implementation of the language, written from its documentation, compared with cbc on every state of every
+# repository rulebook and of random ones, with six deliberate mistakes it must notice (tools/refcheck.py).
+add_test(NAME refcheck COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/../../tools/refcheck_test.sh $<TARGET_FILE:cbc>)
+
+# The commissioning (loop-check) sheet the studio prints and bench-tests a board against.
+add_test(NAME compiler_commissioning
+    COMMAND ${CMAKE_COMMAND} -DCBC=$<TARGET_FILE:cbc> -DCB=${CMAKE_CURRENT_SOURCE_DIR}/../pump/pump.cb
+            -DOUT=${CMAKE_CURRENT_BINARY_DIR} -P ${CMAKE_CURRENT_SOURCE_DIR}/test/commissioning.cmake)
+
+# Exhaustive validation runs on every hardware thread; the result must be byte-identical to one thread's.
+add_test(NAME compiler_threads_same
+    COMMAND ${CMAKE_COMMAND} -DCBC=$<TARGET_FILE:cbc> -DCB=${CMAKE_CURRENT_SOURCE_DIR}/../fixtures/scale/scale18.cb
+            -DOUT=${CMAKE_CURRENT_BINARY_DIR} -P ${CMAKE_CURRENT_SOURCE_DIR}/test/threads_same.cmake)
 
 # ── The whole stack, from raw instrument numbers ─────────────────────────────
 #

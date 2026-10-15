@@ -79,13 +79,27 @@ func extract() {
 		if old, err := os.ReadFile(p); err == nil && bytes.Equal(old, b) {
 			continue
 		}
-		tmp := p + ".tmp"
-		if err := os.WriteFile(tmp, b, 0o755); err != nil {
+		// A temporary file of its own, then an atomic rename: two studios (or two test binaries) starting at once
+		// on a fresh machine used to write the same ".tmp" file, and one could run the other's half-written tool.
+		f, err := os.CreateTemp(dir, name+".*.tmp")
+		if err != nil {
 			initErr = err
 			return
 		}
-		if err := os.Rename(tmp, p); err != nil {
-			initErr = err
+		_, werr := f.Write(b)
+		cerr := f.Close()
+		if werr == nil && cerr == nil {
+			werr = os.Chmod(f.Name(), 0o755)
+		}
+		if werr == nil && cerr == nil {
+			werr = os.Rename(f.Name(), p)
+		}
+		if werr != nil || cerr != nil {
+			os.Remove(f.Name())
+			if werr == nil {
+				werr = cerr
+			}
+			initErr = werr
 			return
 		}
 	}
@@ -98,7 +112,9 @@ func Run(ctx context.Context, name string, args ...string) (Result, error) {
 	if initErr != nil {
 		return Result{}, initErr
 	}
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	// Generous: checking a 30-reading rulebook takes about 2 minutes on 16 threads, and much longer on a small laptop.
+	// The page can always cancel, because the request's context is the parent.
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Hour)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, filepath.Join(dir, exe(name)), args...)
 	var out, errb bytes.Buffer

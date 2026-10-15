@@ -135,6 +135,9 @@ type Checked struct {
 	Info   string `json:"info"`   // qblob info: the image as the device's loader sees it
 	Sweep  string `json:"sweep"`  // qblob sweep: the DEVICE and GUARD lines the board must print
 	Blob   []byte `json:"-"`
+	// Sheet is cbc's commissioning sheet (cbc --commissioning): the action each reading must cause, for the loop
+	// check on the real plant and the bench test of a board. One casebook only; empty for a palette.
+	Sheet string `json:"-"`
 }
 
 // Extra is another casebook to put on the same chip (a palette).
@@ -170,6 +173,10 @@ func Check(ctx context.Context, source string, extras ...Extra) (Checked, error)
 		args = append(args, "--palette")
 	}
 	args = append(args, "--blob", blob)
+	sheet := filepath.Join(work, "casebook.sheet")
+	if len(extras) == 0 {
+		args = append(args, "--commissioning", sheet)
+	}
 	r, err := tools.Run(ctx, "cbc", args...)
 	if err != nil {
 		return Checked{}, err
@@ -203,6 +210,13 @@ func Check(ctx context.Context, source string, extras ...Extra) (Checked, error)
 		return c, nil
 	}
 	c.OK, c.Blob, c.Info, c.Sweep = true, b, info.Stdout, strings.TrimSpace(sweep.Stdout)
+	if len(extras) == 0 {
+		sh, err := os.ReadFile(sheet)
+		if err != nil {
+			return c, errors.New("cbc reported success but wrote no commissioning sheet")
+		}
+		c.Sheet = string(sh)
+	}
 	// A draft written by a language model passes no check by being well-formed. Until a person removes the marker,
 	// it may be checked as often as anyone likes, but no chip image is made from it.
 	if draft.Unapproved(source) {
