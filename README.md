@@ -23,6 +23,8 @@ Pico 2 or an Arduino Uno R4.
 
 <sub>The overview is 34 slides in plain words: what quorum is, what it is for, and what it has not done yet.</sub>
 
+**Website: [quorumlogic.io](https://quorumlogic.io)**, with guides to writing and checking rulebooks.
+
 [**What is quorum?**](#what-is-quorum) · [**Everything it does**](#everything-it-does) ·
 [**What it looks like**](#what-it-looks-like) · [**Quick start**](#quick-start) · [**How it is tested**](#how-it-is-tested) ·
 [**Measured on real chips**](#measured-on-a-real-part) · [**Honest limits**](#honest-limits) · [**FAQ**](#faq)
