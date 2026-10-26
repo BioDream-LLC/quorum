@@ -837,9 +837,9 @@ additionally gated with `-ffreestanding -fno-exceptions -fno-rtti -fno-threadsaf
   after Y", "X within the last T" and "X N times in T", and hold a threshold "for T". The rules are still checked in
   every combination of readings, but whether the device sets a timed reading at the right moment is shown by tests
   against a second implementation, not by exhaustive validation. Timed readings cannot be nested or chained, a reading
-  set and cleared between two device steps (about 1 ms apart) is missed. On an Uno R4 with its own clock, 8 of 8
-  timed checks passed (`firmware/arduino/measured-timed-2026-10-26.txt`); the 5-minute and 1-hour expiries were checked
-  only on the host, and the Pico 2 has not run them.
+  set and cleared between two device steps (about 1 ms apart) is missed. On a Pico 2 and an Uno R4, each with its own
+  clock, 8 of 8 timed checks passed (`firmware/*/measured-timed-2026-10-26.txt`); the 5-minute and 1-hour expiries were
+  checked only on the host.
 - **RPN does not translate.** Severity does, through ASPIC+ preference ordering (`severity 1..10` on a claim), but
   occurrence and detection are population statistics with no meaning for the single machine a device is attached to.
 - **`exclusive` groups are validated even where a declared binding makes them unreachable.** Conservative on purpose:

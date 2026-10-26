@@ -1,0 +1,34 @@
+Timed readings on a Raspberry Pi Pico 2 (RP2350, 150 MHz), 2026-10-26.
+Runtime firmware (firmware/pico2/build-runtime.sh) and the image from quorum-studio image casebook/fixtures/timed/timed.cb,
+both copied to the BOOTSEL drive after a 1200-baud reset. Then driven over Modbus RTU (COM4) by the same throwaway Go
+check as the Uno R4, with the board's own millisecond clock; between requests the firmware calls QuorumMap::tick().
+
+--- start-up report
+casebook        timed-demo v1
+arguments       29, attacks 27, observations 9
+image           OK, fingerprint 0xb90f2dbe
+not Decided     0   construction faults 0
+steps           max 76, proven bound 130, WITHIN
+worst cycle     17018 cycles = 113.453 us at 150000000 Hz (state 0x0, cold, instantiate+decide)
+DEVICE timed-demo states 512 asserts 416 fnv1a 0x3003af65
+GUARD timed-demo pairs 1536 accepted 652 replaced 884 weaker 0 fnv1a 0x96bec2dd
+(identical to qblob sweep on the host and to the Uno R4.)
+
+--- timed check
+board fingerprint 0xb90f2dbe, 9 observations
+OK   run    nothing set (got run)
+OK   stop   pressure high 2 s after a start: dead-heading (got stop)
+OK   run    pressure normal again (got run)
+OK   alarm  pressure high 12 s after the start: blockage (got alarm)
+OK   run    writing the timed reading's bit does not set it (got run)
+OK   stop   bearing hot now (got stop)
+OK   alarm  cooled, 30 s later with no requests: still remembered (ran hot in the last 5 min) (got alarm)
+OK   stop   three overload trips within seconds, seen between requests: lockout (got stop)
+(the lockout clears an hour after the first trip; not waited for)
+elapsed 44s; 8 passed, 0 failed
+
+--- the same firmware with the pump image (regression)
+quorum-studio bench pump.cb -port COM4: board on COM4, image 0x1a375f9d: 41 of 41 states as the sheet says
+
+Not checked on the board: expiry of the 5-minute and 1-hour windows (checked on the host, binding_timers and
+runtime_modbus).
