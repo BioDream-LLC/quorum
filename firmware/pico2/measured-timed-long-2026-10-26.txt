@@ -1,0 +1,19 @@
+Waiting out the long windows of casebook/fixtures/timed/timed.cb on a Raspberry Pi Pico 2, 2026-10-26.
+Firmware and image as in measured-timed-2026-10-26.txt (before the test clock existed), driven over Modbus RTU
+(COM4) in real time with the board's own clock, by a throwaway Go check. 67 minutes.
+Part 1: bearing_hot within last 5m. Part 2: overload_trip 3 times in 1h, trips at 0, 1, 2 and 30 min.
+
+COM4: board fingerprint 0xb90f2dbe
+      0s  bearing hot for 0.3 s, then cool
+   4m40s  OK   want alarm got alarm 4 min 40 s after: still remembered
+   5m20s  OK   want run   got run   5 min 20 s after: forgotten
+      0s  overload trip
+    1m0s  overload trip
+    2m0s  overload trip
+    2m0s  OK   want stop  got stop  third trip: lockout
+   30m0s  OK   want stop  got stop  30 min after the first trip: still locked out
+   30m0s  fourth overload trip
+ 1h0m40s  OK   want stop  got stop  60 min 40 s: first trip has aged out, but trips 2-4 are within the hour
+ 1h1m20s  OK   want run   got run   61 min 20 s: second trip has aged out too; only 2 in the last hour
+COM4: 6 passed, 0 failed
+--- PASS: TestTimedLong (4000.01s)

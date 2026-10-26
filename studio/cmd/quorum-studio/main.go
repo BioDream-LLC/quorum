@@ -144,8 +144,9 @@ func sheetCmd(args []string) int {
 func benchCmd(args []string) int {
 	fs := flag.NewFlagSet("bench", flag.ContinueOnError)
 	port := fs.String("port", "", "the board's serial port: COM3, /dev/ttyACM0, /dev/cu.usbmodem1101")
+	realTime := fs.Bool("real-time", false, "for timed readings: wait in real time if the board's test clock is unavailable")
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "usage: quorum-studio bench <in.cb> -port <serial port>")
+		fmt.Fprintln(os.Stderr, "usage: quorum-studio bench <in.cb> -port <serial port> [-real-time]")
 		return 2
 	}
 	if err := fs.Parse(args[1:]); err != nil {
@@ -161,20 +162,41 @@ func benchCmd(args []string) int {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-	r, err := bench.Run(ctx, *port, sh)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 1
-	}
-	for _, st := range r.Steps {
+	show := func(st bench.Step) {
 		mark := "PASS"
 		if !st.Pass {
 			mark = "FAIL"
 		}
 		fmt.Printf("%s  %-60s expect %-16s board %s\n", mark, st.Label, st.Expect, st.Got)
 	}
-	fmt.Printf("\nboard on %s, image 0x%08x: %d of %d states as the sheet says\n", r.Port, r.Fingerprint, r.Passed,
-		r.Passed+r.Failed)
+	opt := bench.Options{RealTime: *realTime}
+	if sh.Timed() > 0 {
+		opt.Progress = show // a timed test can take a while in real time; show each answer as it comes
+		if *realTime {
+			fmt.Printf("timed readings: if the board's test clock is unavailable this takes about %s\n",
+				sh.Duration().Round(time.Minute))
+		}
+	}
+	r, err := bench.Run(ctx, *port, sh, opt)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	if opt.Progress == nil {
+		for _, st := range r.Steps {
+			show(st)
+		}
+	}
+	what := "states"
+	if sh.Timed() > 0 {
+		what = "timed checks"
+	}
+	fmt.Printf("\nboard on %s, image 0x%08x: %d of %d %s as the sheet says\n", r.Port, r.Fingerprint, r.Passed,
+		r.Passed+r.Failed, what)
+	if r.TestClock {
+		fmt.Println("The board's test clock is on until the board is reset. Unplug it, or write the image again, " +
+			"before it goes into service.")
+	}
 	if r.Failed > 0 {
 		return 1
 	}

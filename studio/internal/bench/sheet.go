@@ -15,6 +15,7 @@ import (
 	"html"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Row is one reading of the sheet.
@@ -38,6 +39,34 @@ type Sheet struct {
 	Channels    int      `json:"channels"`
 	Rest        string   `json:"rest"` // the action with nothing set
 	Rows        []Row    `json:"rows"`
+	// Script is the bench test for a rulebook with timed readings: what to write and when, and what the board must
+	// answer. Empty for a rulebook without timed readings.
+	Script []Cue `json:"script,omitempty"`
+}
+
+// Cue is one line of a timed bench script. A scene starts after Quiet ms with nothing set; At counts from the start
+// of the current scene.
+type Cue struct {
+	Op     string `json:"op"` // "scene", "set" or "expect"
+	Quiet  uint64 `json:"quiet,omitempty"`
+	At     uint64 `json:"at,omitempty"`
+	Mask   uint32 `json:"mask,omitempty"`
+	Expect string `json:"expect,omitempty"`
+	Label  string `json:"label,omitempty"`
+}
+
+// Duration is how long the script takes in real time.
+func (s Sheet) Duration() time.Duration {
+	var now, base uint64
+	for _, c := range s.Script {
+		if c.Op == "scene" {
+			now += c.Quiet
+			base = now
+		} else if base+c.At > now {
+			now = base + c.At
+		}
+	}
+	return time.Duration(now) * time.Millisecond
 }
 
 // Parse reads the tab-separated output of cbc --commissioning.
@@ -71,6 +100,25 @@ func Parse(text string) (Sheet, error) {
 			s.Channels, _ = strconv.Atoi(f[1])
 		case f[0] == "rest" && len(f) >= 2:
 			s.Rest = f[1]
+		case f[0] == "scene" && len(f) == 2:
+			q, err := strconv.ParseUint(f[1], 10, 64)
+			if err != nil {
+				return s, fmt.Errorf("script %q: %w", line, err)
+			}
+			s.Script = append(s.Script, Cue{Op: "scene", Quiet: q})
+		case f[0] == "set" && len(f) == 3:
+			at, err1 := strconv.ParseUint(f[1], 10, 64)
+			m, err2 := strconv.ParseUint(strings.TrimPrefix(f[2], "0x"), 16, 32)
+			if err := errors.Join(err1, err2); err != nil {
+				return s, fmt.Errorf("script %q: %w", line, err)
+			}
+			s.Script = append(s.Script, Cue{Op: "set", At: at, Mask: uint32(m)})
+		case f[0] == "expect" && len(f) == 4:
+			at, err := strconv.ParseUint(f[1], 10, 64)
+			if err != nil {
+				return s, fmt.Errorf("script %q: %w", line, err)
+			}
+			s.Script = append(s.Script, Cue{Op: "expect", At: at, Expect: f[2], Label: f[3]})
 		case f[0] == "row" && len(f) == 10:
 			bit, err := strconv.Atoi(f[1])
 			if err != nil {

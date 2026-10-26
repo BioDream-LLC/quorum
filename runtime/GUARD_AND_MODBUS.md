@@ -59,7 +59,7 @@ until it is reset, and the text stops so it cannot corrupt the master's framing.
 2026-10-10 any byte switched the mode, and a byte sent by Windows after the USB port appeared silenced the Pico.
 The first request may be lost if it arrives mid-report, so masters retry, as `qmodbus.ps1` does.
 
-### Register map, version 1
+### Register map, version 2
 
 Addresses are 0-based 16-bit holding registers. Actions are given by their **position** in the rulebook's action
 list (`qblob` prints it). For the pump that is 0 `continue`, 1 `maintain`, 2 `shutdown`.
@@ -67,13 +67,15 @@ list (`qblob` prints it). For the pump that is 0 `continue`, 1 `maintain`, 2 `sh
 | address | meaning | access |
 |---|---|---|
 | 0 | `0x5155` ("QU") | read |
-| 1 | map version, 1 | read |
+| 1 | map version, 2 (version 2 added registers 10 to 12) | read |
 | 2, 3 | fingerprint, high then low 16 bits: the number the board prints and cbc reports | read |
 | 4 | observation count | read |
 | 5 | member count (1 unless a palette) | read |
 | 6 | channel count | read |
 | 7 | evaluation counter | read |
 | 8, 9 | presence mask, high then low: the readings that are true, for observations no channel drives | read/write |
+| 10 | test clock: 1 if on. Write `0x7E57` to turn it on (see below) | read/write |
+| 11, 12 | how far the test clock has moved the board's clock, ms, high then low. Write both in one function 16 to move it forward | read/write |
 | 16 + 16·m | member m: proposed action position, `0xFFFF` = none | read/write |
 | +1 | outcome: 0 Decided, 1 Indeterminate, 2 Unsatisfied, 3 Conflicted, 4 Faulted | read |
 | +2 | the rulebook's action position (the fallback when not Decided) | read |
@@ -92,6 +94,21 @@ counts as "hot". A write is checked in full before anything changes, so a reject
 
 A PLC's loop is: write the presence mask and/or channel samples, optionally write a proposal, read +1..+6, and act
 on +4.
+
+**The test clock** lets a bench test a rulebook's timed readings without waiting: a 1-hour window takes seconds. Writing
+`0x7E57` to register 10 turns it on; then each function-16 write of N to registers 11 and 12 moves the board's clock
+N ms forward, at most 24 days at a time. The board steps its timed readings just before and just after each move, as
+real time would. Three rules keep it out of service:
+
+- It can be turned on only before anything else has been written since start-up. A controller in service writes
+  readings from its first scan, so after that the key is refused until the board is reset.
+- Once on, it stays on until the board is reset, and register 10 reads 1. **A controller should read register 10 at
+  start-up and refuse to run if it is not 0.**
+- Moving the clock only moves it forward, and it changes when things happen, never which rules apply: every answer
+  the board gives is still one of the answers exhaustive validation checked.
+
+Anyone who can reset the board and send it the key before the controller's first write can turn it on. That is the
+same person who could write a different image to it, which is a bigger power.
 
 ### Trying it: `tools/modbus/qmodbus.ps1`
 

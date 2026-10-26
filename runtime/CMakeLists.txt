@@ -31,6 +31,7 @@ set(QUORUM_BLOB_CASES
     "held|fixtures/held/held.cb|held_demo|1"
     "gearbox|example/gearbox.cb|gearbox_demo|1"
     "timed|fixtures/timed/timed.cb|timed_demo|0|1"
+    "chained|fixtures/timed/chained.cb|chained_demo|0|1"
 )
 set(CB_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../casebook)
 foreach(case ${QUORUM_BLOB_CASES})
@@ -84,6 +85,37 @@ add_dependencies(test_modbus test_blob_pump test_blob_held test_blob_timed)
 add_test(NAME runtime_modbus COMMAND test_modbus ${CMAKE_CURRENT_BINARY_DIR}/blob/pump/casebook.qcb
                                                 ${CMAKE_CURRENT_BINARY_DIR}/blob/held/casebook.qcb
                                                 ${CMAKE_CURRENT_BINARY_DIR}/blob/timed/casebook.qcb)
+
+# The bench script cbc writes for each timed rulebook, played against the device's Modbus map on its test clock.
+add_executable(test_timed_script test/test_timed_script.cpp)
+target_link_libraries(test_timed_script PRIVATE quorum_runtime)
+target_include_directories(test_timed_script PRIVATE ${CMAKE_SOURCE_DIR}/binding/include)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(test_timed_script PRIVATE ${QUORUM_STRICT})
+endif()
+foreach(case ${QUORUM_BLOB_CASES})
+    string(REPLACE "|" ";" f "${case}")
+    list(LENGTH f nf)
+    if(nf LESS 5)
+        continue()
+    endif()
+    list(GET f 4 tm)
+    if(NOT tm)
+        continue()
+    endif()
+    list(GET f 0 name)
+    list(GET f 1 src)
+    set(out ${CMAKE_CURRENT_BINARY_DIR}/blob/${name})
+    add_custom_command(OUTPUT ${out}/sheet.tsv
+        COMMAND cbc ${CB_ROOT}/${src} --quiet --commissioning ${out}/sheet.tsv
+        DEPENDS cbc ${CB_ROOT}/${src}
+        COMMENT "cbc: commissioning sheet and bench script for ${name}")
+    add_custom_target(sheet_${name} ALL DEPENDS ${out}/sheet.tsv)
+    add_dependencies(test_timed_script test_blob_${name} sheet_${name})
+    add_test(NAME runtime_timed_script_${name} COMMAND test_timed_script ${out}/casebook.qcb ${out}/sheet.tsv)
+    add_test(NAME runtime_timed_script_late_${name}
+             COMMAND test_timed_script ${out}/casebook.qcb ${out}/sheet.tsv --late 50)
+endforeach()
 
 # qblob: the host companion. Uses the device loader itself.
 add_executable(qblob tools/qblob.cpp)

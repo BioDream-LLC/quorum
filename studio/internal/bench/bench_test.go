@@ -2,6 +2,7 @@ package bench
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -86,7 +87,7 @@ func run(t *testing.T, b *fakeBoard) (Result, error) {
 	old := Open
 	Open = func(string) (Port, error) { return b, nil }
 	defer func() { Open = old }()
-	return Run(context.Background(), "COM9", sh)
+	return Run(context.Background(), "COM9", sh, Options{})
 }
 
 // The pump's rules as the sheet states them: vib_high and vib_1x together mean maintain; overspeed means shutdown.
@@ -139,16 +140,165 @@ func TestSheetHTMLEscapesAndListsEveryReading(t *testing.T) {
 	}
 }
 
-func TestBenchRefusesTimedReadingsBeforeOpeningAPort(t *testing.T) {
-	s, err := Parse(pumpSheet + "row\t3\tran_hot\ttimed: vib_high within the last 5 min\talarm\tDecided\talone\talarm\tcontinue\tran hot\n")
+// A small timed rulebook for the fake board: "hot" is bit 0, and "ran_hot" (bit 1) is set while hot was seen in the
+// last 300 ms. ran_hot means alarm; hot itself means stop. The script is what cbc would write for it.
+const timedSheet = "quorum-commissioning 1\ncasebook t v1\nfingerprint 0x00000077\nactions\trun\talarm\tstop\n" +
+	"channels\t0\nrest\trun\tDecided\n" +
+	"row\t0\thot\tpresence bit 0\tstop\tDecided\talone\tstop\trun\thot\n" +
+	"row\t1\tran_hot\ttimed: hot within the last 300 ms\talarm\tDecided\talone\talarm\trun\tran hot\n" +
+	"scene\t0\nexpect\t0\trun\tnothing set\n" +
+	"scene\t0\nset\t0\t0x1\nset\t30\t0x0\nexpect\t300\talarm\tran_hot: hot last seen 270 ms ago\n" +
+	"expect\t360\trun\tran_hot: hot last seen 330 ms ago\n"
+
+// timedBoard is a fake board for timedSheet with a real clock, a test clock, and the rule that the test clock can be
+// turned on only before anything else is written.
+type timedBoard struct {
+	fakeBoard
+	start    time.Time
+	offset   uint64
+	on       bool
+	written  bool
+	lastHot  int64 // ms on the board's clock, -1 = never
+	memory   int64 // how long ran_hot lasts, ms
+	advances int
+}
+
+func (b *timedBoard) now() int64 { return time.Since(b.start).Milliseconds() + int64(b.offset) }
+
+func (b *timedBoard) step() {
+	if b.mask&1 != 0 {
+		b.lastHot = b.now()
+	}
+}
+
+func (b *timedBoard) Write(p []byte) (int, error) {
+	b.pending = append(b.pending, p...)
+	f := b.pending
+	if len(f) < 8 {
+		return len(p), nil
+	}
+	b.pending = nil
+	b.step()
+	addr := uint16(f[2])<<8 | uint16(f[3])
+	exc := func() { b.out = append(b.out, frame([]byte{1, f[1] | 0x80, 3})...) }
+	switch f[1] {
+	case 3:
+		n := uint16(f[4])<<8 | uint16(f[5])
+		r := []byte{1, 3, byte(2 * n)}
+		for i := uint16(0); i < n; i++ {
+			v := uint16(0)
+			switch addr + i {
+			case 0:
+				v = 0x5155
+			case 1:
+				v = 2
+			case 2:
+				v = uint16(b.fp >> 16)
+			case 3:
+				v = uint16(b.fp)
+			case 5:
+				v = 1
+			case 18:
+				switch {
+				case b.mask&1 != 0:
+					v = 2
+				case b.lastHot >= 0 && b.now()-b.lastHot <= b.memory:
+					v = 1
+				}
+			}
+			r = append(r, byte(v>>8), byte(v))
+		}
+		b.out = append(b.out, frame(r)...)
+		return len(p), nil
+	case 16:
+		v := func(i int) uint16 { return uint16(f[7+2*i])<<8 | uint16(f[8+2*i]) }
+		switch addr {
+		case 10:
+			if b.written || v(0) != 0x7E57 {
+				exc()
+				return len(p), nil
+			}
+			b.on = true
+		case 11:
+			if !b.on {
+				exc()
+				return len(p), nil
+			}
+			b.offset += uint64(v(0))<<16 | uint64(v(1))
+			b.advances++
+		case 8:
+			b.written = true
+			b.mask = uint32(v(0))<<16 | uint32(v(1))
+		default:
+			b.written = true
+		}
+		b.step()
+		b.out = append(b.out, frame([]byte{1, 16, f[2], f[3], f[4], f[5]})...)
+	}
+	return len(p), nil
+}
+
+func runTimed(t *testing.T, b *timedBoard, opt Options) (Result, error) {
+	t.Helper()
+	sh, err := Parse(timedSheet)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s.Timed() != 1 {
-		t.Fatalf("Timed() = %d, want 1", s.Timed())
+	if len(sh.Script) != 7 || sh.Duration() != 360*time.Millisecond {
+		t.Fatalf("script %d cues, %s", len(sh.Script), sh.Duration())
 	}
-	_, err = Run(context.Background(), "/dev/quorum-no-such-port", s)
-	if err == nil || !strings.Contains(err.Error(), "timed readings") {
-		t.Fatalf("want a refusal naming timed readings, got %v", err)
+	old := Open
+	Open = func(string) (Port, error) { return b, nil }
+	defer func() { Open = old }()
+	return Run(context.Background(), "COM9", sh, opt)
+}
+
+func newTimedBoard() *timedBoard {
+	return &timedBoard{fakeBoard: fakeBoard{fp: 0x77}, start: time.Now(), lastHot: -1, memory: 300}
+}
+
+func TestTimedBenchUsesTheTestClock(t *testing.T) {
+	b := newTimedBoard()
+	began := time.Now()
+	r, err := runTimed(t, b, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Passed != 3 || r.Failed != 0 || !r.TestClock || !r.Timed || b.advances == 0 {
+		t.Errorf("passed %d failed %d testClock %v advances %d: %+v", r.Passed, r.Failed, r.TestClock, b.advances, r.Steps)
+	}
+	if time.Since(began) > 250*time.Millisecond {
+		t.Errorf("took %s: the test clock should not wait", time.Since(began))
+	}
+}
+
+func TestTimedBenchRefusesWithoutTheTestClockUnlessAllowedToWait(t *testing.T) {
+	b := newTimedBoard()
+	b.written = true // a controller has already written to it
+	_, err := runTimed(t, b, Options{})
+	if !errors.Is(err, ErrNoTestClock) || !strings.Contains(err.Error(), "Reset the board") {
+		t.Fatalf("want ErrNoTestClock, got %v", err)
+	}
+	b = newTimedBoard()
+	b.written = true
+	r, err := runTimed(t, b, Options{RealTime: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Passed != 3 || r.Failed != 0 || r.TestClock || b.advances != 0 {
+		t.Errorf("real time: passed %d failed %d testClock %v advances %d: %+v", r.Passed, r.Failed, r.TestClock,
+			b.advances, r.Steps)
+	}
+}
+
+func TestTimedBenchFindsABoardThatForgetsTooSoon(t *testing.T) {
+	b := newTimedBoard()
+	b.memory = 200 // the board remembers an overheat for 200 ms instead of 300 ms
+	r, err := runTimed(t, b, Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Failed != 1 || !strings.Contains(r.Steps[1].Label, "270 ms ago") || r.Steps[1].Got != "run" {
+		t.Errorf("%+v", r.Steps)
 	}
 }

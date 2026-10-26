@@ -476,12 +476,39 @@ public:
                 default: return Status::BadSpec;
             }
         }
-        // A timer may not watch another timer's output: each output is a function of base readings only, so the
-        // order timers are stepped in can never matter.
+        // A timer may watch another timer's output only if that timer comes EARLIER in the table. Timers are stepped
+        // in table order, so each sees the outputs it watches already brought up to date, and a loop (two timers
+        // watching each other) cannot be written down at all.
+        std::uint32_t earlier = 0;
         for (std::int32_t t = 0; t < count; ++t) {
-            if ((outputs & (obs_bit(specs[ix(t)].source) | obs_bit(specs[ix(t)].after))) != 0U) { return Status::BadSpec; }
+            const std::uint32_t watched = obs_bit(specs[ix(t)].source) | obs_bit(specs[ix(t)].after);
+            if ((watched & outputs & ~earlier) != 0U) { return Status::BadSpec; }
+            earlier |= obs_bit(specs[ix(t)].observation);
         }
         return Status::Ok;
+    }
+
+    /// How many ms after `now_ms` the next timer output can change by time alone, with the readings unchanged: the
+    /// earliest moment a "within last" or "times in" reading that is set now expires. False if none can. A device
+    /// that steps every millisecond never needs this; a clock that jumps (the test clock) steps at each such moment
+    /// on its way, so a timer that watches another sees it expire when it really does.
+    [[nodiscard]] bool next_change(std::uint32_t now_ms, std::uint32_t& in_ms) const noexcept {
+        bool any = false;
+        in_ms = 0;
+        for (std::int32_t t = 0; t < count_; ++t) {
+            const std::size_t i = ix(t);
+            const TimerSpec& s = specs_[i];
+            if (!out_[i] || s.kind == TimerKind::After) { continue; }  // an After clears only when its source does
+            std::uint32_t at = last_ms_[i];
+            if (s.kind == TimerKind::Count) {
+                at = ring_[i][ix((head_[i] - s.times + kMaxTimerCount) % kMaxTimerCount)];
+            }
+            const std::uint32_t age = now_ms - at;  // <= window, or the output would not be set
+            const std::uint32_t d = age < s.window_ms ? s.window_ms - age + 1U : 1U;
+            if (!any || d < in_ms) { in_ms = d; }
+            any = true;
+        }
+        return any;
     }
 
     /// The presence bits the timers own. The runtime clears these from any mask written from outside.
@@ -489,13 +516,16 @@ public:
     [[nodiscard]] constexpr std::int32_t count() const noexcept { return count_; }
 
     /// Advance every timer to `now_ms` given the base readings `base` (everything except timer outputs), and return
-    /// the timer bits to OR into the mask. Calling it twice at the same time with the same base changes nothing.
+    /// the timer bits to OR into the mask. Timers are stepped in table order, and a timer that watches an earlier
+    /// timer sees that timer's output for this same step. Calling it twice at the same time with the same base changes nothing.
     std::uint32_t step(std::uint32_t base, std::uint32_t now_ms) noexcept {
         std::uint32_t m = 0;
+        base &= ~outputs_;  // a timer's output comes from the timer, never from outside
         for (std::int32_t t = 0; t < count_; ++t) {
             const TimerSpec& s = specs_[ix(t)];
             const std::size_t i = ix(t);
-            const bool src = set(base, s.source);
+            const std::uint32_t seen = base | m;  // base readings, and the timers stepped so far
+            const bool src = set(seen, s.source);
             const bool rose = src && !prev_source_[i];
             // Unsigned differences throughout, so a millisecond counter rolling through zero after 49.7 days does not
             // make an old event look new.
@@ -504,7 +534,7 @@ public:
             };
             switch (s.kind) {
                 case TimerKind::After: {
-                    const bool first = set(base, s.after);
+                    const bool first = set(seen, s.after);
                     // The earlier reading is taken first, so both becoming set in the same step counts as "after".
                     if (first && !prev_after_[i]) {
                         seen_[i] = true;
@@ -513,6 +543,9 @@ public:
                     prev_after_[i] = first;
                     if (rose) { out_[i] = seen_[i] && within(last_ms_[i]); }
                     if (!src) { out_[i] = false; }
+                    // Forget an expired start, so that 49.7 days later, when the clock has come round again, it does
+                    // not look recent. Harmless otherwise: an expired start can never satisfy `within` again.
+                    if (seen_[i] && !within(last_ms_[i])) { seen_[i] = false; }
                     break;
                 }
                 case TimerKind::Recent:
@@ -521,12 +554,18 @@ public:
                         last_ms_[i] = now_ms;
                     }
                     out_[i] = seen_[i] && within(last_ms_[i]);
+                    if (!out_[i]) { seen_[i] = false; }  // forgotten once expired, for the same reason
                     break;
                 case TimerKind::Count: {
                     if (rose) {
                         ring_[i][ix(head_[i])] = now_ms;
                         head_[i] = (head_[i] + 1) % kMaxTimerCount;
                         if (filled_[i] < kMaxTimerCount) { ++filled_[i]; }
+                    }
+                    // Drop the edges that have left the window, oldest first, so none can come back after a wrap.
+                    while (filled_[i] > 0 &&
+                           !within(ring_[i][ix((head_[i] - filled_[i] + kMaxTimerCount) % kMaxTimerCount)])) {
+                        --filled_[i];
                     }
                     // The `times`-th most recent edge must still be inside the window.
                     if (filled_[i] >= s.times) {

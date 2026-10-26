@@ -12,10 +12,10 @@
 // answered with exception 01; an address outside the map with 02; a bad value with 03. A frame whose CRC is wrong is
 // dropped silently, as the standard requires -- a garbled request must not be guessed at.
 //
-// REGISTER MAP, version 1 (16-bit holding registers, 0-based addresses):
+// REGISTER MAP, version 2 (16-bit holding registers, 0-based addresses). Version 2 added registers 10-12.
 //
 //     0  0x5155 ("QU")                       read only
-//     1  map version (1)                     read only
+//     1  map version (2)                     read only
 //     2  fingerprint, high 16 bits           read only   -- the same number the device prints at start-up
 //     3  fingerprint, low 16 bits            read only
 //     4  observation count                   read only
@@ -24,6 +24,10 @@
 //     7  evaluation counter                  read only   -- increments every time the rulebook is decided
 //     8  presence mask, high 16 bits         read/write  -- observations not driven by a channel
 //     9  presence mask, low 16 bits          read/write
+//    10  test clock: 1 if on                 read; write 0x7E57 to turn it on, only before anything else is
+//                                                        written since start-up. It stays on until the board resets.
+//    11  test clock moved, high 16 bits      read; write 11 and 12 in one function 16 to move the clock forward
+//    12  test clock moved, low 16 bits             by that many ms (at most 24 days at a time), test clock on only
 //   16 + 16*m, for member m:
 //    +0  proposed action, as a position in the action list, 0xFFFF = none     read/write
 //    +1  outcome: 0 Decided, 1 Indeterminate, 2 Unsatisfied, 3 Conflicted, 4 Faulted

@@ -1,0 +1,80 @@
+The studio's bench test for timed rulebooks on a Raspberry Pi Pico 2 (RP2350), 2026-10-26.
+Runtime firmware with the test clock (Modbus map version 2), images from quorum-studio image <rulebook> -board pico2,
+each written after a 1200-baud reset. quorum-studio bench <rulebook> -port COM4, as shipped.
+
+--- timed.cb on the test clock (seconds)
+PASS  nothing set                                                  expect run              board run
+PASS  dead_head: pressure_high 9 s after motor_started             expect stop             board stop
+PASS  dead_head: pressure_high 11 s after motor_started            expect alarm            board alarm
+PASS  ran_hot: bearing_hot last set 4 min 55 s ago                 expect alarm            board alarm
+PASS  ran_hot: bearing_hot last set 5 min 5 s ago                  expect run              board run
+PASS  repeated_trips: 3 times overload_trip within 1.2 s, read 1.5 s after the first expect stop             board stop
+PASS  repeated_trips: the first of those 60 min 5 s ago, so 2 in the window expect run              board run
+PASS  motor_started alone                                          expect run              board run
+PASS  motor_started with pressure_high                             expect stop             board stop
+PASS  pressure_high without motor_started                          expect alarm            board alarm
+PASS  pressure_high alone                                          expect alarm            board alarm
+PASS  overload_trip alone                                          expect run              board run
+PASS  bearing_hot alone                                            expect stop             board stop
+PASS  gauge_suspect alone                                          expect run              board run
+PASS  gauge_suspect with pressure_high                             expect run              board run
+PASS  pressure_high without gauge_suspect                          expect alarm            board alarm
+PASS  flushing alone                                               expect run              board run
+PASS  flushing with pressure_high                                  expect run              board run
+PASS  pressure_high without flushing                               expect alarm            board alarm
+
+board on COM4, image 0xb90f2dbe: 19 of 19 timed checks as the sheet says
+The board's test clock is on until the board is reset. Unplug it, or write the image again, before it goes into service.
+
+--- the same board again without a reset: refused
+no test clock: the board's test clock cannot be turned on, because it has been written to since it started. Reset
+the board (unplug it and plug it back in, or write the image again) and test again, or test in real time, ...
+
+--- chained.cb on the test clock (seconds)
+PASS  nothing set                                                  expect run              board run
+PASS  ran_hot: bearing_hot last set 55 s ago                       expect watch            board watch
+PASS  ran_hot: bearing_hot last set 1 min 5 s ago                  expect watch            board watch
+PASS  hot_restart: motor_started 1 min 55 s after ran_hot          expect alarm            board alarm
+PASS  hot_restart: motor_started 2 min 5 s after ran_hot           expect watch            board watch
+PASS  suspect: ran_hot last set 1 min 55 s ago                     expect watch            board watch
+PASS  suspect: ran_hot last set 2 min 5 s ago                      expect run              board run
+PASS  hot_restarts: 2 times hot_restart within 0.6 s, read 0.9 s after the first expect stop             board stop
+PASS  hot_restarts: the first of those 60 min 5 s ago, so 1 in the window expect run              board run
+PASS  hot_twice: 2 times ran_hot within 60.6 s, read 60.9 s after the first expect alarm            board alarm
+PASS  hot_twice: the first of those 60 min 5 s ago, so 1 in the window expect run              board run
+PASS  motor_started alone                                          expect run              board run
+PASS  bearing_hot alone                                            expect stop             board stop
+PASS  sensor_check alone                                           expect run              board run
+PASS  sensor_check with bearing_hot                                expect run              board run
+PASS  bearing_hot without sensor_check                             expect stop             board stop
+PASS  test_run alone                                               expect run              board run
+
+board on COM4, image 0x944a89bc: 17 of 17 timed checks as the sheet says
+The board's test clock is on until the board is reset. Unplug it, or write the image again, before it goes into service.
+
+--- timed.cb in real time (-real-time on a board already written to), 71 minutes
+PASS  nothing set                                                  expect run              board run
+PASS  dead_head: pressure_high 9 s after motor_started             expect stop             board stop
+PASS  dead_head: pressure_high 11 s after motor_started            expect alarm            board alarm
+PASS  ran_hot: bearing_hot last set 4 min 55 s ago                 expect alarm            board alarm
+PASS  ran_hot: bearing_hot last set 5 min 5 s ago                  expect run              board run
+PASS  repeated_trips: 3 times overload_trip within 1.2 s, read 1.5 s after the first expect stop             board stop
+PASS  repeated_trips: the first of those 60 min 5 s ago, so 2 in the window expect run              board run
+PASS  motor_started alone                                          expect run              board run
+PASS  motor_started with pressure_high                             expect stop             board stop
+PASS  pressure_high without motor_started                          expect alarm            board alarm
+PASS  pressure_high alone                                          expect alarm            board alarm
+PASS  overload_trip alone                                          expect run              board run
+PASS  bearing_hot alone                                            expect stop             board stop
+PASS  gauge_suspect alone                                          expect run              board run
+PASS  gauge_suspect with pressure_high                             expect run              board run
+PASS  pressure_high without gauge_suspect                          expect alarm            board alarm
+PASS  flushing alone                                               expect run              board run
+PASS  flushing with pressure_high                                  expect run              board run
+PASS  pressure_high without flushing                               expect alarm            board alarm
+
+board on COM4, image 0xb90f2dbe: 19 of 19 timed checks as the sheet says
+
+An earlier real-time run, before the script waited 2 s after each expiry, passed 17 of 19: 'gauge_suspect alone'
+and 'gauge_suspect with pressure_high' began at the millisecond ran_hot expired, and the bench wrote a few ms late,
+so the board still had ran_hot set and answered alarm. test_timed_script --late 50 reproduces that on the host.

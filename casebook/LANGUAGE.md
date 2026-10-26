@@ -431,22 +431,45 @@ second implementation that keeps the whole history and applies the table above l
 
 Three rules keep this simple enough to check:
 
-- **A timed reading watches only base readings**: an `observe`, or a reading a channel sets. It cannot watch a
-  conclusion or another timed reading, so the order the device works them out in cannot change any answer.
-- **The device sees readings when it steps**, about every millisecond on both boards, and at every Modbus request. A
-  reading that is set and cleared between two steps is missed. At start-up, a reading already set counts as having
-  just become set: the device does not assume a quiet history it never saw.
+- **A timed reading watches readings, never conclusions**: an `observe`, a reading a channel sets, or another timed
+  reading (`reading hot_twice "..." when ran_hot 2 times in 1h`). cbc orders the table so that each timed reading
+  comes after those it watches, and the device works them out in that order, so each sees the others as they are at
+  the same moment. Two timed readings that watch each other, directly or through others, are refused. A conclusion is
+  refused because the rules' own answers would then feed back into their inputs, and exhaustive validation would no
+  longer cover what the device does.
+- **The device sees every reading the controller writes.** It steps the timed readings just before and just after
+  each Modbus write, so a reading written set and cleared by the next write still counts, however close together the
+  two writes are. Changes that come with time alone (a hold maturing, a channel going stale) are seen at the next
+  step, about every millisecond on both boards. What the device cannot see is a pulse on the plant that the
+  controller never writes: that limit is the controller's scan time. Times are kept to the millisecond. At start-up,
+  a reading already set counts as having just become set: the device does not assume a quiet history it never saw.
 - **A doubt does not reach through a timed reading.** `doubt gauge_bad ... undermines pressure_high` discards
   `pressure_high` but not `dead_head`, which the device works out from the raw bit. Name both if a suspect gauge should
   discard both; cbc warns when a doubt names a source but not the timed reading built from it.
 
 Timed readings are set by the device and cannot be written over Modbus, like channel readings. On the commissioning
-sheet each is described as `timed: ...`, and the studio's bench test refuses a rulebook that has them, because setting
-the bit by hand would test nothing. At most 8 per rulebook (the board runtime's table), each counting against the 30
-readings.
+sheet each is described as `timed: ...`, and the sheet's answers include the timed readings that react at once
+(setting `motor_started` with `pressure_high` sets `dead_head`). At most 8 per rulebook (the board runtime's table),
+each counting against the 30 readings.
+
+**Testing a timed rulebook on the bench.** A timed reading cannot be set by writing its bit, so `cbc --commissioning`
+adds a script to the sheet: each timed reading just inside and just outside its window, with the readings that make it
+matter, then every line of the sheet. A chained reading is driven through the base readings at the bottom of its
+chain. Every expected answer comes from replaying the whole script through the table above, over the full history,
+not from the device's timer code; CI plays each fixture's script against the device's Modbus map
+(`runtime_timed_script_*`).
+
+The studio's bench test plays the script on the board's **test clock** (Modbus registers 10 to 12,
+`runtime/GUARD_AND_MODBUS.md`), which moves the board's clock forward, so an hour-long window takes seconds. The test
+clock can be turned on only before anything else has been written to the board since it started, and it stays on
+until the board is reset, so **reset the board before it goes into service**; the studio says so after each run. On a
+board that has already been written to, the bench test asks for a reset, or with `-real-time` (a box in the studio)
+plays the script by waiting: 71 minutes for `timed.cb`, about 8 hours for `chained.cb`.
 
 On the device a timed rulebook needs data-image FORMAT 4: format 3 plus the timer table. cbc writes it only when a
 `reading` exists, so every other rulebook still produces byte-identical images, headers, certificates and fingerprints
 (checked for all 67 repository rulebooks against the previous compiler, 2026-10-26), and firmware that predates timers
 refuses a timed image instead of running it with the timed readings stuck at absent. The fingerprint and the
-certificate cover the timer table. Fixture: `casebook/fixtures/timed/timed.cb`.
+certificate cover the timer table. A table where a timed reading watches another is also format 4, but firmware from
+before chains refuses it at load rather than working the chain out wrongly. Fixtures:
+`casebook/fixtures/timed/timed.cb`, and `chained.cb` with five timed readings, chained three deep.

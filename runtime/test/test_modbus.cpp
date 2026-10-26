@@ -99,7 +99,7 @@ int main(int argc, char** argv) {
     Bytes r = transact(slave, map, read_req(0, 10), 0);
     std::vector<std::uint16_t> v = regs_of(r);
     check(r.size() == 5 + 20 && v.size() == 10, "read 10 identity registers");
-    check(v.size() == 10 && v[0] == 0x5155U && v[1] == 1U, "id and map version");
+    check(v.size() == 10 && v[0] == 0x5155U && v[1] == 2U, "id and map version");
     check(v.size() == 10 && ((static_cast<std::uint32_t>(v[2]) << 16U) | v[3]) == cb.fingerprint,
           "the fingerprint register is the image's fingerprint");
     check(v.size() == 10 && v[4] == cb.observation_count && v[5] == 1U, "observation and member counts");
@@ -261,9 +261,10 @@ int main(int argc, char** argv) {
     check(act(40000) == "stop", "bearing hot now: stop");
     put_mask(0, 41000);
     for (std::uint32_t t = 41000; t < 340000; t += 1000) { tmap.tick(t); }
-    // Last SEEN hot at 40000: the device cannot know about the second before the master cleared the bit.
-    check(act(340000) == "alarm", "last seen hot exactly 5 minutes ago: still remembered, alarm");
-    check(act(340001) == "run", "and forgotten 1 ms later");
+    // Last seen hot at 41000: the bit stayed set until the write that cleared it, and the device steps the timed
+    // readings just before applying a write.
+    check(act(341000) == "alarm", "last seen hot exactly 5 minutes ago: still remembered, alarm");
+    check(act(341001) == "run", "and forgotten 1 ms later");
 
     // Three overload trips, each seen only through tick(), within an hour: lockout.
     std::uint32_t now = 400000;
@@ -275,6 +276,86 @@ int main(int argc, char** argv) {
     }
     check(act(now) == "stop", "three trips in an hour: lockout, stop");
     check(act(now + 3600000U) == "run", "an hour after the first: run");
+
+    // A reading written set and then clear in the same millisecond, with no read and no tick between: every written
+    // state must still be seen. Three such trips, then a bearing that was hot for no time at all.
+    now += 7200000U;
+    check(act(now) == "run", "two hours later: run");
+    for (int trip = 0; trip < 3; ++trip) {
+        put_mask(1U << 2, now);
+        put_mask(0, now);
+        now += 1U;
+    }
+    check(act(now) == "stop", "three trips written and cleared within a millisecond each, no tick: lockout");
+    now += 7200000U;
+    put_mask(1U << 3, now);
+    put_mask(0, now);
+    check(act(now + 299999U) == "alarm", "bearing hot for no measurable time, no tick: still remembered");
+
+    std::printf("the test clock: a bench moves the board's clock forward\n");
+    {
+        const auto refused = [](const Bytes& resp) { return resp.size() == 5 && (resp[1] & 0x80U) != 0 && resp[2] == 3; };
+        const auto ok = [](const Bytes& resp) { return resp.size() == 8 && (resp[1] & 0x80U) == 0; };
+        const auto jump = [](std::uint32_t ms) {
+            return write_n(11, {static_cast<std::uint16_t>(ms >> 16), static_cast<std::uint16_t>(ms)});
+        };
+        static rt::RtTimers ct;
+        check(rt::make_timers(ct, timed) == quorum::binding::Status::Ok, "a fresh set of timers");
+        static mb::QuorumMap cm;
+        cm.attach(timed, nullptr, fw, solver, tp, &ct);
+        mb::Slave cs(1);
+        const auto mask_at = [&](std::uint32_t m, std::uint32_t at) {
+            return transact(cs, cm, write_n(8, {static_cast<std::uint16_t>(m >> 16), static_cast<std::uint16_t>(m)}), at);
+        };
+        const auto act_at = [&](std::uint32_t at) {
+            const std::vector<std::uint16_t> o = regs_of(transact(cs, cm, read_req(16, 9), at));
+            return o.size() == 9 && o[2] < timed.action_count ? std::string(rt::name_of(timed, timed.actions[o[2]]))
+                                                             : std::string("?");
+        };
+        std::vector<std::uint16_t> c3 = regs_of(transact(cs, cm, read_req(10, 3), 0));
+        check(c3.size() == 3 && c3[0] == 0 && c3[1] == 0 && c3[2] == 0, "off at start-up, nothing moved");
+        check(refused(transact(cs, cm, jump(1000), 0)), "the clock cannot be moved while the test clock is off");
+        check(refused(transact(cs, cm, write1(10, 1), 0)), "the wrong key does not turn it on");
+        check(refused(transact(cs, cm, write_n(9, {0, mb::kTestClockKey}), 0)), "nor the key inside a longer write");
+        check(ok(transact(cs, cm, write1(10, mb::kTestClockKey), 0)), "the key turns it on");
+        c3 = regs_of(transact(cs, cm, read_req(10, 1), 0));
+        check(c3.size() == 1 && c3[0] == 1, "and register 10 shows it");
+        check(refused(transact(cs, cm, write1(11, 0), 0)), "half an advance is refused");
+        check(refused(transact(cs, cm, jump(mb::kMaxClockJumpMs + 1U), 0)), "more than 24 days in one jump is refused");
+        // Real time stands still at 1000 ms from here on; only the test clock moves.
+        check(act_at(1000) == "run", "nothing set: run");
+        (void)mask_at(1U << 3, 1000);
+        (void)mask_at(0, 1000);
+        check(ok(transact(cs, cm, jump(300000), 1000)), "jump 5 minutes");
+        check(act_at(1000) == "alarm", "an overheat exactly 5 minutes ago on the test clock: remembered");
+        (void)transact(cs, cm, jump(1), 1000);
+        check(act_at(1000) == "run", "1 ms later on the test clock: forgotten");
+        for (int trip = 0; trip < 3; ++trip) {
+            (void)mask_at(1U << 2, 1000);
+            (void)mask_at(0, 1000);
+            (void)transact(cs, cm, jump(600000), 1000);
+        }
+        check(act_at(1000) == "stop", "three trips 10 minutes apart on the test clock: lockout");
+        // The first trip was at 300,001 ms on the test clock and the third jump ended at 2,100,001 ms.
+        (void)transact(cs, cm, jump(1800000), 1000);
+        check(act_at(1000) == "stop", "an hour after the first trip, exactly: still locked out");
+        (void)transact(cs, cm, jump(1), 1000);
+        check(act_at(1000) == "run", "1 ms more: run");
+        (void)transact(cs, cm, jump(mb::kMaxClockJumpMs), 1000);
+        c3 = regs_of(transact(cs, cm, read_req(11, 2), 1000));
+        check(c3.size() == 2 && ((static_cast<std::uint32_t>(c3[0]) << 16U) | c3[1]) == 300001U + 1800000U + 1800001U +
+                                                                                      mb::kMaxClockJumpMs,
+              "registers 11 and 12 report how far the clock has been moved");
+        // Once a controller has written anything, the test clock can no longer be turned on.
+        static rt::RtTimers ct2;
+        (void)rt::make_timers(ct2, timed);
+        static mb::QuorumMap cm2;
+        cm2.attach(timed, nullptr, fw, solver, tp, &ct2);
+        mb::Slave cs2(1);
+        (void)transact(cs2, cm2, write_n(8, {0, 0}), 0);
+        check(refused(transact(cs2, cm2, write1(10, mb::kTestClockKey), 0)),
+              "after a controller has written the readings, the key is refused until the board is reset");
+    }
 
     std::printf("%d checks, %d failures\n", g_checks, g_failures);
     return g_failures == 0 ? 0 : 1;

@@ -122,26 +122,53 @@ type Result struct {
 	Steps       []Step `json:"steps"`
 	Passed      int    `json:"passed"`
 	Failed      int    `json:"failed"`
+	// TestClock is true when the board's test clock was used. It stays on until the board is reset, and a
+	// controller should refuse a board whose register 10 is not 0.
+	TestClock bool `json:"testClock,omitempty"`
+	// Timed is true when the sheet's timed script was played, rather than its list of states.
+	Timed bool `json:"timed,omitempty"`
 }
+
+// Options for Run.
+type Options struct {
+	// RealTime runs a timed script by waiting, when the board's test clock cannot be turned on. It can take an hour
+	// or more; Sheet.Duration says how long.
+	RealTime bool
+	// Progress, if set, is told each answer as it arrives.
+	Progress func(Step)
+}
+
+// Registers of the test clock (runtime/GUARD_AND_MODBUS.md, map version 2).
+const (
+	regTestClock    = 10
+	regClockAdvance = 11
+	testClockKey    = 0x7E57
+	maxJumpMs       = 24 * 86400000
+)
+
+// ErrNoTestClock means the board's test clock could not be turned on: it has been written to since it started.
+var ErrNoTestClock = errors.New("no test clock")
 
 // Run drives the board on port through every step of the sheet and compares each decision with the sheet. It
 // refuses a board that runs a different image, and a rulebook with raw channels: those readings come from samples
-// the controller must keep writing, which a bench test cannot stand in for honestly. It refuses timed readings for the
-// same reason: the board sets them from the history of other readings and ignores a written bit.
-func Run(ctx context.Context, port string, s Sheet) (Result, error) {
+// the controller must keep writing, which a bench test cannot stand in for honestly. A rulebook with timed readings
+// is tested by playing the sheet's script through time, on the board's test clock or, with opt.RealTime, by waiting.
+func Run(ctx context.Context, port string, s Sheet, opt Options) (Result, error) {
 	res := Result{Port: port}
 	if s.Channels > 0 {
 		return res, errors.New("this rulebook reads raw channels, which the bench test does not drive; use the " +
 			"printed sheet on the plant instead")
 	}
-	if n := s.Timed(); n > 0 {
-		return res, fmt.Errorf("this rulebook has %d timed readings, which the board works out itself from other "+
-			"readings over time, so the bench test cannot set them by writing a bit; use the printed sheet on the plant "+
-			"instead", n)
+	timed := s.Timed() > 0
+	if timed && len(s.Script) == 0 {
+		return res, errors.New("this sheet has timed readings but no bench script; it was made by an older cbc")
 	}
-	steps, err := s.Steps()
-	if err != nil {
-		return res, err
+	var steps []Step
+	if !timed {
+		var err error
+		if steps, err = s.Steps(); err != nil {
+			return res, err
+		}
 	}
 	p, err := Open(port)
 	if err != nil {
@@ -175,6 +202,9 @@ func Run(ctx context.Context, port string, s Sheet) (Result, error) {
 	if id[5] != 1 {
 		return res, errors.New("the board carries several casebooks; test each on its own board")
 	}
+	if timed {
+		return runScript(ctx, c, s, opt, id[1], res)
+	}
 	// No proposal: the rulebook's own decision is what is compared.
 	if err := c.Write(ctx, 16, 0xFFFF); err != nil {
 		return res, err
@@ -200,6 +230,95 @@ func Run(ctx context.Context, port string, s Sheet) (Result, error) {
 		res.Steps = append(res.Steps, st)
 	}
 	// Leave the board at rest.
+	_ = c.Write(ctx, 8, 0, 0)
+	return res, nil
+}
+
+// runScript plays a timed bench script. The test clock must be turned on before anything else is written, so it
+// is tried first; without it the script runs in real time, if allowed.
+func runScript(ctx context.Context, c *Client, s Sheet, opt Options, mapVersion uint16, res Result) (Result, error) {
+	res.Timed = true
+	if mapVersion >= 2 && c.Write(ctx, regTestClock, testClockKey) == nil {
+		res.TestClock = true
+	} else if !opt.RealTime {
+		why := "it has been written to since it started"
+		if mapVersion < 2 {
+			why = "its firmware predates the test clock"
+		}
+		return res, fmt.Errorf("%w: the board's test clock cannot be turned on, because %s. Reset the board (unplug "+
+			"it and plug it back in, or write the image again) and test again, or test in real time, which takes "+
+			"about %s", ErrNoTestClock, why, s.Duration().Round(time.Minute))
+	}
+	if err := c.Write(ctx, 16, 0xFFFF); err != nil {
+		return res, err
+	}
+	// t is the script's time in ms; on the test clock it is how far the board's clock has been moved.
+	var t, base uint64
+	wall := time.Now()
+	moveTo := func(target uint64) error {
+		if target <= t {
+			return nil
+		}
+		if !res.TestClock {
+			select {
+			case <-time.After(time.Until(wall.Add(time.Duration(target) * time.Millisecond))):
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+			t = target
+			return nil
+		}
+		for t < target {
+			d := min(target-t, maxJumpMs)
+			if err := c.Write(ctx, regClockAdvance, uint16(d>>16), uint16(d)); err != nil {
+				return fmt.Errorf("moving the test clock: %w", err)
+			}
+			t += d
+		}
+		return nil
+	}
+	var mask uint32
+	for _, cue := range s.Script {
+		var err error
+		switch cue.Op {
+		case "scene":
+			mask = 0
+			if err = c.Write(ctx, 8, 0, 0); err == nil {
+				err = moveTo(t + cue.Quiet)
+				base = t
+			}
+		case "set":
+			if err = moveTo(base + cue.At); err == nil {
+				mask = cue.Mask
+				err = c.Write(ctx, 8, uint16(mask>>16), uint16(mask))
+			}
+		case "expect":
+			if err = moveTo(base + cue.At); err != nil {
+				break
+			}
+			var v []uint16
+			if v, err = c.Read(ctx, 16+2, 1); err != nil {
+				break
+			}
+			st := Step{Label: cue.Label, Mask: mask, Expect: cue.Expect, Got: fmt.Sprintf("action #%d", v[0])}
+			if int(v[0]) < len(s.Actions) {
+				st.Got = s.Actions[v[0]]
+			}
+			st.Pass = st.Got == st.Expect
+			if st.Pass {
+				res.Passed++
+			} else {
+				res.Failed++
+			}
+			res.Steps = append(res.Steps, st)
+			if opt.Progress != nil {
+				opt.Progress(st)
+			}
+		}
+		if err != nil {
+			return res, fmt.Errorf("%s: %w", cue.Label, err)
+		}
+	}
 	_ = c.Write(ctx, 8, 0, 0)
 	return res, nil
 }

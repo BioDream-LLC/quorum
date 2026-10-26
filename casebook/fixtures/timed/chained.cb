@@ -1,0 +1,36 @@
+casebook chained-demo v1
+source "quorum fixture: timed readings that watch timed readings" dated 2026-10-26 by "quorum project"
+note "A bearing that ran hot in the last minute is suspect. If that happens twice in an hour the bearing is failing."
+note "A restart within 2 minutes of the bearing having been hot is a hot restart, and two hot restarts in an hour"
+note "lock the motor out. The readings are declared out of order on purpose: cbc orders the table so each timed"
+note "reading comes after those it watches."
+
+observe motor_started "the motor start command is on"
+observe bearing_hot   "bearing temperature above the limit"
+observe sensor_check  "the bearing sensor failed its last check"
+observe test_run      "a maintenance test run is in progress"
+
+reading hot_restarts "two hot restarts within an hour" when hot_restart 2 times in 1h
+reading hot_restart  "a start within 2 minutes of the bearing having been hot" when motor_started within 2m after ran_hot
+reading ran_hot      "the bearing was hot at some point in the last minute" when bearing_hot within last 1m
+reading hot_twice    "the bearing ran hot twice within an hour" when ran_hot 2 times in 1h
+reading suspect      "the bearing was still being watched in the last 2 minutes" when ran_hot within last 2m
+
+claim overheating "bearing hot now" severity 7 needs bearing_hot
+claim cooling     "bearing ran hot recently" severity 3 needs ran_hot
+claim settling    "bearing under watch until it has been cool for a while" severity 2 needs suspect
+claim failing     "the bearing keeps running hot" severity 6 needs hot_twice
+claim restarted   "restarted while hot" severity 5 needs hot_restart
+claim lockout     "repeated hot restarts: do not restart" severity 9 needs hot_restarts
+
+excuse testing "a start during a maintenance test is expected" needs test_run
+testing undercuts restarted
+
+doubt sensor_bad "the bearing sensor cannot be trusted" needs sensor_check
+  undermines bearing_hot ran_hot hot_twice hot_restart hot_restarts suspect
+
+action run idle
+action watch when any cooling settling
+action alarm when any failing restarted
+action stop safe when any overheating lockout
+prefer stop over alarm over watch over run

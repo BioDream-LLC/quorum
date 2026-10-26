@@ -66,11 +66,15 @@ that is the loop check, and the studio prints the sheet for it.
   who saw it, and the image fingerprint the board must report. It comes from `cbc --commissioning`.
 - **Test the board** (or `quorum-studio bench pump.cb -port COM4`) drives a board over Modbus, the way a PLC would,
   through every line of the sheet: at rest, each reading alone, and each with the readings that make it matter. It
-  compares each answer and refuses a board running a different image. It covers rulebooks without raw channels or
-  timed readings. A channel's readings come from samples that a controller must keep writing, and a timed reading
-  ("pressure high within 10 s after a start") is worked out by the board from the history of other readings, so both
-  are left to the sheet, which describes each timed reading in words.
-  Measured on a Pico 2 with the pump image: 41 of 41 states as the sheet says.
+  compares each answer and refuses a board running a different image. It covers rulebooks without raw channels: a
+  channel's readings come from samples that a controller must keep writing, so those are left to the sheet. A
+  rulebook with timed readings ("pressure high within 10 s after a start") is tested by playing a script through time
+  on the board's test clock, so an hour-long window takes seconds. That needs a board that has just been reset, and
+  leaves the test clock on until the next reset: **reset the board before it goes into service.** On a board that has
+  been written to already, `-real-time` (or the box next to the button) plays the script by waiting instead.
+  Measured on a Pico 2 with the pump image: 41 of 41 states as the sheet says. With the timed fixtures on its test
+  clock: 19 of 19 and 17 of 17, and 19 of 19 for `timed.cb` in real time (71 minutes;
+  `firmware/pico2/measured-bench-timed-2026-10-26.txt`). The Uno R4 has not run the timed bench test.
 - The bench test checks the board, not the plant. Only the sheet, worked through on the real machine, checks the
   wiring.
 

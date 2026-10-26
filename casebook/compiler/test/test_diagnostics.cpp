@@ -482,17 +482,28 @@ int main() {
          "prefer s over i\n",
          5, "conclusion", "c"},
 
-        {"timed reading watching a timed reading",
+        {"timed readings watching each other in a loop",
          "casebook t v1\n"
          "source \"d\" dated 2026-01-01 by \"x\"\n"
          "observe hot \"hot\"\n"
          "observe start \"start\"\n"
-         "reading r1 \"r1\" when hot within last 5s\nreading r2 \"r2\" when r1 within last 5s\n"
+         "reading r1 \"r1\" when r2 within last 5s\nreading r2 \"r2\" when r1 2 times in 1h\n"
          "claim c \"c\" needs hot\n"
          "action i idle\n"
          "action s safe when c\n"
          "prefer s over i\n",
-         6, "itself a timed reading", "r1"},
+         5, "in a loop", "r1"},
+
+        {"timed reading watching itself",
+         "casebook t v1\n"
+         "source \"d\" dated 2026-01-01 by \"x\"\n"
+         "observe hot \"hot\"\n"
+         "reading r1 \"r1\" when r1 within last 5s\n"
+         "claim c \"c\" needs hot\n"
+         "action i idle\n"
+         "action s safe when c\n"
+         "prefer s over i\n",
+         4, "watches itself", "r1"},
     };
 
     for (const Case& c : cases) { run(c); }

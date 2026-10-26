@@ -15,7 +15,12 @@
 namespace quorum::runtime::modbus {
 
 constexpr std::uint16_t kId = 0x5155U;
-constexpr std::uint16_t kMapVersion = 1U;
+constexpr std::uint16_t kMapVersion = 2U;
+/// Written to register 10 to turn the test clock on. See write().
+constexpr std::uint16_t kTestClockKey = 0x7E57U;
+/// The most one write may move the test clock forward: 24 days, the longest window a timed reading may have, so the
+/// timers' unsigned time differences can never wrap within one jump.
+constexpr std::uint32_t kMaxClockJumpMs = 24U * 86400000U;
 constexpr std::uint16_t kMemberBase = 16U;
 constexpr std::uint16_t kMemberStride = 16U;
 constexpr std::uint16_t kChannelBase = 256U;
@@ -44,6 +49,9 @@ public:
         // casebook whose timers did not configure keeps those bits clear rather than letting a master set them.
         for (std::int32_t t = 0; t < cb.timer_count; ++t) { channel_bits_ |= obs_mask(cb.timers[t].observation); }
         reset_proposals();
+        offset_ms_ = 0;
+        test_clock_ = false;
+        written_ = false;
     }
 
     /// A palette: no binding, the presence mask is written directly. `policies[m]` per member.
@@ -61,7 +69,7 @@ public:
     }
 
     Exception read(std::uint16_t address, std::uint16_t count, std::uint16_t* out, std::uint32_t now_ms) override {
-        evaluate(now_ms);
+        evaluate(now_ms + offset_ms_);
         for (std::uint16_t i = 0; i < count; ++i) {
             if (!get(static_cast<std::uint16_t>(address + i), out[i])) { return Exception::IllegalAddress; }
         }
@@ -74,6 +82,54 @@ public:
             const Exception e = check(static_cast<std::uint16_t>(address + i), v[i]);
             if (e != Exception::None) { return e; }
         }
+        // The test clock: a bench moves the board's clock forward, so that a 1-hour window can be tested in seconds.
+        // It can be turned on only before anything else has been written since start-up, it stays on until the board
+        // is reset, and register 10 shows it. A controller in service writes readings from its first scan, so the
+        // test clock cannot be turned on behind its back without a reset, and a controller can check register 10.
+        const bool touches_clock = address <= 12U && static_cast<std::uint32_t>(address) + count > 10U;
+        if (touches_clock) {
+            // Turning it on: register 10 alone, the key, and nothing else written yet.
+            const bool turn_on = address == 10U && count == 1U && v[0] == kTestClockKey && !written_;
+            // Moving it: 11 and 12 together in one function 16, at most 24 days, and only once it is on.
+            bool advance = false;
+            if (address == 11U && count == 2U && test_clock_) {
+                advance = ((static_cast<std::uint32_t>(v[0]) << 16U) | v[1]) <= kMaxClockJumpMs;
+            }
+            if (!turn_on && !advance) { return Exception::IllegalValue; }
+        }
+        if (address == 10U) {
+            test_clock_ = true;
+            return Exception::None;
+        }
+        if (address == 11U && count == 2U) {
+            // Step at the old time, then at the new one, so every timer passes through the jump as through real time
+            // with no reading changing in between.
+            tick(now_ms);
+            std::uint32_t left = (static_cast<std::uint32_t>(v[0]) << 16U) | v[1];
+            // Stop at each moment a timed reading expires on the way, as the board would in real time, so that a
+            // timed reading watching another sees it expire then and not at the end of the jump.
+            std::uint32_t in_ms = 0;
+            // It also stops 1 ms before, the last moment the reading is still set, which a board ticking every
+            // millisecond would have seen too.
+            while (timers_ != nullptr && left > 0U && timers_->next_change(now_ms + offset_ms_, in_ms) && in_ms <= left) {
+                if (in_ms > 1U) {
+                    offset_ms_ += in_ms - 1U;
+                    left -= in_ms - 1U;
+                    tick(now_ms);
+                }
+                offset_ms_ += 1U;
+                left -= 1U;
+                tick(now_ms);
+            }
+            offset_ms_ += left;
+            tick(now_ms);
+            return Exception::None;
+        }
+        written_ = true;
+        // Step the timed readings on the state before this write, then again after it, so that every state the
+        // readings pass through is seen: a reading written set and cleared by the next request, with no read or tick
+        // between, still counts, and so does a hold that matured with time alone just before a sample cleared it.
+        tick(now_ms);
         for (std::uint16_t i = 0; i < count; ++i) {
             const auto a = static_cast<std::uint16_t>(address + i);
             if (a == 8U) { mask_ = (mask_ & 0x0000FFFFU) | (static_cast<std::uint32_t>(v[i]) << 16U); }
@@ -87,16 +143,17 @@ public:
                     pending_high_[c] = v[i];
                 } else if (binding_ != nullptr) {
                     const auto milli = static_cast<std::int32_t>((static_cast<std::uint32_t>(pending_high_[c]) << 16U) | v[i]);
-                    (void)binding_->sample(c, milli, now_ms);
+                    (void)binding_->sample(c, milli, now_ms + offset_ms_);
                 }
             }
         }
+        tick(now_ms);
         return Exception::None;
     }
 
     /// Step the timed readings without deciding. The firmware calls this every millisecond or so between requests,
     /// so a timer sees a reading come and go even when no master is polling. Does nothing without timers.
-    void tick(std::uint32_t now_ms) noexcept { (void)base_and_timers(now_ms); }
+    void tick(std::uint32_t now_ms) noexcept { (void)base_and_timers(now_ms + offset_ms_); }
 
     [[nodiscard]] std::uint32_t evaluations() const noexcept { return evaluations_; }
     [[nodiscard]] std::uint32_t presence() const noexcept { return presence_; }
@@ -131,6 +188,7 @@ private:
     }
 
     [[nodiscard]] Exception check(std::uint16_t a, std::uint16_t v) const noexcept {
+        if (a >= 10U && a <= 12U) { return Exception::None; }  // the test clock, checked in write()
         if (a == 8U || a == 9U) {
             const std::int32_t n = observations();
             const std::uint32_t allowed = n >= 32 ? 0xFFFFFFFFU : (1U << static_cast<std::uint32_t>(n)) - 1U;
@@ -193,6 +251,9 @@ private:
             case 7: v = static_cast<std::uint16_t>(evaluations_ & 0xFFFFU); return true;
             case 8: v = static_cast<std::uint16_t>(mask_ >> 16U); return true;
             case 9: v = static_cast<std::uint16_t>(mask_ & 0xFFFFU); return true;
+            case 10: v = test_clock_ ? 1U : 0U; return true;
+            case 11: v = static_cast<std::uint16_t>(offset_ms_ >> 16U); return true;
+            case 12: v = static_cast<std::uint16_t>(offset_ms_ & 0xFFFFU); return true;
             default: break;
         }
         if (a >= kMemberBase && a < kChannelBase) {
@@ -219,6 +280,9 @@ private:
     std::uint32_t mask_ = 0;
     std::uint32_t presence_ = 0;
     std::uint32_t evaluations_ = 0;
+    std::uint32_t offset_ms_ = 0;  ///< how far the test clock has moved the board's clock forward
+    bool test_clock_ = false;
+    bool written_ = false;         ///< anything other than the test clock written since start-up
     std::uint16_t proposal_[kMaxMembers]{};
     std::uint16_t pending_high_[kMaxChannels]{};
     std::uint16_t out_[kMaxMembers][7]{};

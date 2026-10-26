@@ -285,7 +285,10 @@ func (s *Server) sheet(w http.ResponseWriter, r *http.Request) {
 
 // bench drives a board on a serial port through the sheet over Modbus and reports each answer.
 func (s *Server) bench(w http.ResponseWriter, r *http.Request) {
-	var req struct{ Port string }
+	var req struct {
+		Port     string
+		RealTime bool
+	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		fail(w, http.StatusBadRequest, err)
 		return
@@ -299,7 +302,7 @@ func (s *Server) bench(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	res, err := bench.Run(r.Context(), req.Port, sh)
+	res, err := bench.Run(r.Context(), req.Port, sh, bench.Options{RealTime: req.RealTime})
 	if err != nil {
 		fail(w, http.StatusUnprocessableEntity, err)
 		return

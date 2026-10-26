@@ -145,6 +145,41 @@ void test_wraparound() {
     check((u.step(0, now + 400000U) & bit(kRanHot)) == 0, "and expires on time after it");
 }
 
+void test_long_quiet() {
+    std::printf("an old event does not come back when the clock wraps 49.7 days later\n");
+    // The device steps about every millisecond; stepping once a minute is enough to show it, and keeps the test fast.
+    const std::uint32_t wrap_ms = 0xFFFFFFFFU;  // 2^32 - 1 ms, one turn of the clock
+    Timers<3> t = make();
+    std::uint32_t now = 1000U;
+    (void)t.step(bit(kStart) | bit(kHot), now);
+    for (int trip = 0; trip < 3; ++trip) {
+        (void)t.step(bit(kStart) | bit(kTrip), now += 10);
+        (void)t.step(bit(kStart), now += 10);
+    }
+    (void)t.step(0, now += 10);
+    bool ever = false;
+    const std::uint32_t end = now + wrap_ms + 600000U;  // ten minutes past one full turn
+    for (std::uint64_t q = now; q < static_cast<std::uint64_t>(now) + wrap_ms + 600000U; q += 60000U) {
+        const std::uint32_t at = static_cast<std::uint32_t>(q);
+        if (static_cast<std::uint64_t>(q) - now > 3600010U && (t.step(0, at) & (bit(kRanHot) | bit(kRepeated))) != 0) {
+            ever = true;
+        } else {
+            (void)t.step(0, at);
+        }
+    }
+    (void)end;
+    check(!ever, "an overheat and three trips 49.7 days ago stay forgotten through the wrap");
+    // A start 49.7 days ago must not make a pressure rise now count as "within 10 s after".
+    Timers<3> u = make();
+    std::uint32_t at = 5000U;
+    (void)u.step(bit(kStart), at);
+    (void)u.step(0, at += 10);
+    for (std::uint64_t q = 0; q + 60000U < wrap_ms; q += 60000U) { (void)u.step(0, at += 60000U); }
+    at = 5000U + wrap_ms + 1U + 3000U;  // 3 s after the start, one full turn later
+    check((u.step(bit(kPressure), at) & bit(kDeadHead)) == 0,
+          "a pressure rise one clock turn after an old start is not 'within 10 s after' it");
+}
+
 void test_idempotent_and_outputs() {
     std::printf("stepping twice at one moment changes nothing\n");
     Timers<3> t = make();
@@ -182,7 +217,19 @@ void test_configure_refuses() {
     const TimerSpec chained[] = {{TimerKind::Recent, kRanHot, kHot, -1, 1000U, 0},
                                  {TimerKind::Recent, kDeadHead, kRanHot, -1, 1000U, 0}};
     Timers<2> c;
-    check(c.configure(chained, 2, kObservations) == Status::BadSpec, "a timer watching another timer");
+    check(c.configure(chained, 2, kObservations) == Status::Ok, "a timer watching an earlier timer");
+    const TimerSpec backwards[] = {{TimerKind::Recent, kDeadHead, kRanHot, -1, 1000U, 0},
+                                   {TimerKind::Recent, kRanHot, kHot, -1, 1000U, 0}};
+    Timers<2> c2;
+    check(c2.configure(backwards, 2, kObservations) == Status::BadSpec, "a timer watching a LATER timer");
+    const TimerSpec loop[] = {{TimerKind::Recent, kDeadHead, kRanHot, -1, 1000U, 0},
+                              {TimerKind::Recent, kRanHot, kDeadHead, -1, 1000U, 0}};
+    Timers<2> c3;
+    check(c3.configure(loop, 2, kObservations) == Status::BadSpec, "two timers watching each other");
+    const TimerSpec late_after[] = {{TimerKind::After, kDeadHead, kPressure, kRanHot, 1000U, 0},
+                                    {TimerKind::Recent, kRanHot, kHot, -1, 1000U, 0}};
+    Timers<2> c4;
+    check(c4.configure(late_after, 2, kObservations) == Status::BadSpec, "an After whose earlier reading is a later timer");
     const TimerSpec twice[] = {{TimerKind::Recent, kRanHot, kHot, -1, 1000U, 0},
                                {TimerKind::Recent, kRanHot, kTrip, -1, 1000U, 0}};
     Timers<2> d;
@@ -203,6 +250,8 @@ bool rose(const std::vector<Step>& h, std::size_t i, int o) {
     return has(h[i].mask, o) && (i == 0 || !has(h[i - 1].mask, o));
 }
 
+// The reference for one timer, over a history of FULL masks (base readings and every timer output so far). A chain
+// is handled by working out each step's full mask in table order, in reference_all below.
 bool reference(const TimerSpec& s, const std::vector<Step>& h) {
     const std::size_t k = h.size() - 1;
     const std::uint64_t now = h[k].at;
@@ -232,34 +281,67 @@ bool reference(const TimerSpec& s, const std::vector<Step>& h) {
     return false;
 }
 
+// Append one step of base readings to a full-mask history, with the timer outputs the definitions give, in table
+// order: a timer watching an earlier timer reads that timer's output from this same step.
+std::uint32_t reference_all(const TimerSpec* specs, int n, std::vector<Step>& full, std::uint64_t at, std::uint32_t base) {
+    full.push_back({at, base});
+    for (int i = 0; i < n; ++i) {
+        if (reference(specs[i], full)) { full.back().mask |= bit(specs[i].observation); }
+    }
+    return full.back().mask;
+}
+
+void test_chains() {
+    std::printf("a timed reading that watches another\n");
+    // ran_hot = hot within the last 300 s; dead_head (reused as "ran hot twice") = ran_hot 2 times in 1 h.
+    const TimerSpec specs[] = {{TimerKind::Recent, kRanHot, kHot, -1, 300000U, 0},
+                               {TimerKind::Count, kRepeated, kRanHot, -1, 3600000U, 2}};
+    Timers<2> t;
+    check(t.configure(specs, 2, kObservations) == Status::Ok, "the chained table configures");
+    std::uint32_t now = 0;
+    check((t.step(bit(kHot), now) & bit(kRepeated)) == 0, "hot once: not twice");
+    check((t.step(bit(kHot), now += 1000) & bit(kRepeated)) == 0, "still hot: still once");
+    check((t.step(0, now += 1000) & bit(kRanHot)) != 0, "cooled: ran_hot remembers");
+    check((t.step(bit(kHot), now += 1000) & bit(kRepeated)) == 0, "hot again while ran_hot is still set: still once");
+    check((t.step(0, now += 400000) & bit(kRanHot)) == 0, "ran_hot expires");
+    check((t.step(bit(kHot), now += 1000) & bit(kRepeated)) != 0,
+          "hot again after ran_hot expired: ran_hot rises a second time, in this same step: twice in the hour");
+}
+
 void test_against_reference() {
     std::printf("against a whole-history reference, random histories\n");
     std::mt19937 gen(20261025U);
     const auto rng = [&gen]() { return static_cast<std::uint32_t>(gen()); };
     long compared = 0, mismatches = 0, set_seen = 0;
     for (int trial = 0; trial < 400; ++trial) {
-        // Random table: three timers over four base readings, with small windows so they fire and expire often.
+        // Random table: three timers over four base readings, with small windows so they fire and expire often. On
+        // half the trials a timer may also watch the timers before it, so chains of up to three are compared too.
         TimerSpec specs[3];
+        const bool chains = trial % 4 >= 2;
         for (int i = 0; i < 3; ++i) {
             const auto kind = static_cast<TimerKind>(rng() % 3U);
-            const int src = static_cast<int>(rng() % 4U);
+            // Readings it may watch: the four base readings, and with chains the outputs of timers 0..i-1 (4..3+i).
+            const unsigned pool = chains ? 4U + static_cast<unsigned>(i) : 4U;
+            const int src = static_cast<int>(rng() % pool);
             int after = -1;
-            if (kind == TimerKind::After) { after = static_cast<int>((static_cast<unsigned>(src) + 1U + rng() % 3U) % 4U); }
+            if (kind == TimerKind::After) {
+                after = static_cast<int>((static_cast<unsigned>(src) + 1U + rng() % (pool - 1U)) % pool);
+            }
             specs[i] = {kind, 4 + i, src, after, 1U + rng() % 400U, kind == TimerKind::Count ? 2 + static_cast<int>(rng() % 5U) : 0};
         }
         Timers<3> t;
         check(t.configure(specs, 3, kObservations) == Status::Ok, "a random table configures");
         std::vector<Step> h;
-        // Start near the wrap on half the trials.
+        // Start near the wrap on alternate trials.
         std::uint64_t at = trial % 2 == 0 ? 0ULL : 0xFFFFFFFFULL - 2000ULL;
         std::uint32_t base = 0;
         for (int step = 0; step < 300; ++step) {
             at += rng() % 60U;  // repeated moments included
             if (rng() % 3U == 0U) { base ^= bit(static_cast<int>(rng() % 4U)); }
-            h.push_back({at, base});
+            const std::uint32_t full = reference_all(specs, 3, h, at, base);
             const std::uint32_t got = t.step(base, static_cast<std::uint32_t>(at));
             for (int i = 0; i < 3; ++i) {
-                const bool want = reference(specs[i], h);
+                const bool want = has(full, 4 + i);
                 ++compared;
                 if (want) { ++set_seen; }
                 if (want != has(got, 4 + i)) {
@@ -285,6 +367,8 @@ int main() {
     test_recent();
     test_count();
     test_wraparound();
+    test_long_quiet();
+    test_chains();
     test_idempotent_and_outputs();
     test_start_up();
     test_configure_refuses();

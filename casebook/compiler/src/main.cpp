@@ -13,8 +13,10 @@
 #include <cstdio>
 #include <set>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <memory>
+#include <map>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -1100,6 +1102,426 @@ struct Options {
 ///
 /// The rounds are computed here by synchronous iteration, independently of the device solver, and the result is
 /// compared against `solver::Grounded` argument by argument before anything is written.
+/// One sheet row, as the timed bench script needs it.
+struct SheetRow {
+    std::int32_t bit = 0;
+    std::uint32_t mask = 0;
+    std::uint32_t with = 0;  ///< the other readings with which it matters, 0 if alone or none
+    std::string with_names;
+    std::string alone, then, without;
+};
+
+/// The bench script for a timed rulebook, appended to the commissioning sheet:
+///
+///     scene   <quiet ms>                     write no readings, then let this much time pass
+///     set     <ms into the scene>  <mask>    write the readings
+///     expect  <ms into the scene>  <action>  <label>
+///
+/// The board works out its timed readings from the history of the others, so a bench test is a script through time
+/// rather than a list of states. Every expected answer comes from replaying the WHOLE script, from the first scene on,
+/// through the definitions in LANGUAGE.md applied to the full history -- not through the board's timer code -- and
+/// deciding with the timed readings that gives. The replay steps where the board steps: just before and after each
+/// write, at each answer, and at the last moment and the first moment after a timed reading expires on its own.
+///
+/// Each timed reading is tested just inside and just outside its window. A timed reading that watches another is
+/// driven through the readings at the bottom of the chain. Each scene checks, in the replay, that the reading under
+/// test really is set or clear as its label says; when the readings it is built from share inputs in a way that
+/// makes that impossible to arrange, the scene keeps its writes but drops its answers, and cbc says so.
+[[nodiscard]] bool write_timed_script(const quorum::cbc::Lowered& lo, const std::vector<SheetRow>& rows,
+                                      const std::function<bool(std::uint32_t, std::string&, std::string&)>& decide,
+                                      const std::function<std::uint32_t(std::uint32_t)>& immediate, std::ofstream& out) {
+    using Timer = quorum::cbc::LoweredTimer;
+    struct Step {
+        std::uint64_t at;
+        std::uint32_t full;  ///< base readings and the timed readings the definitions give at this step
+    };
+    auto has = [](std::uint32_t m, std::int32_t o) { return o >= 0 && (m & (1U << static_cast<std::uint32_t>(o))) != 0U; };
+    auto bit = [](std::int32_t o) { return o >= 0 ? 1U << static_cast<std::uint32_t>(o) : 0U; };
+    std::uint32_t timed_bits = 0;
+    for (const Timer& t : lo.timers) { timed_bits |= bit(t.observation); }
+
+    // ── the replay ──
+    std::vector<Step> h;
+    std::uint64_t now = 0;
+    std::uint32_t base = 0;
+    auto rose = [&](std::size_t i, std::int32_t o) { return has(h[i].full, o) && (i == 0 || !has(h[i - 1].full, o)); };
+    // The definitions for one timer at the last step, whose earlier timers are already in h.back().full.
+    auto defined = [&](const Timer& t) {
+        const std::size_t k = h.size() - 1;
+        if (t.kind == 0) {
+            if (!has(h[k].full, t.source)) { return false; }
+            std::size_t j = k;
+            while (j > 0 && has(h[j - 1].full, t.source)) { --j; }
+            for (std::size_t i = 0; i <= j; ++i) {
+                if (rose(i, t.after) && h[j].at - h[i].at <= t.window_ms) { return true; }
+            }
+            return false;
+        }
+        if (t.kind == 1) {
+            for (std::size_t i = k + 1; i-- > 0;) {
+                if (h[k].at - h[i].at > t.window_ms) { break; }
+                if (has(h[i].full, t.source)) { return true; }
+            }
+            return false;
+        }
+        int n = 0;
+        for (std::size_t i = k + 1; i-- > 0;) {
+            if (h[k].at - h[i].at > t.window_ms) { break; }
+            n += rose(i, t.source) ? 1 : 0;
+        }
+        return n >= t.times;
+    };
+    auto push = [&](std::uint64_t at, std::uint32_t b) {
+        h.push_back({at, b});
+        for (const Timer& t : lo.timers) {  // table order: a timer sees the earlier timers of this same step
+            if (defined(t)) { h.back().full |= bit(t.observation); }
+        }
+    };
+    // The next moment a timed reading that is set now expires with the readings unchanged, as on the board.
+    auto next_expiry = [&](std::uint64_t& at) {
+        bool any = false;
+        const std::size_t k = h.size() - 1;
+        for (const Timer& t : lo.timers) {
+            if (!has(h[k].full, t.observation) || t.kind == 0) { continue; }
+            std::uint64_t from = 0;
+            if (t.kind == 1) {
+                for (std::size_t i = k + 1; i-- > 0;) {
+                    if (has(h[i].full, t.source)) { from = h[i].at; break; }
+                }
+            } else {
+                int n = 0;
+                for (std::size_t i = k + 1; i-- > 0;) {
+                    if (rose(i, t.source) && ++n == t.times) { from = h[i].at; break; }
+                }
+            }
+            const std::uint64_t e = from + t.window_ms + 1U;
+            if (e > now && (!any || e < at)) { at = e; any = true; }
+        }
+        return any;
+    };
+    auto advance = [&](std::uint64_t to) {
+        std::uint64_t e = 0;
+        while (next_expiry(e) && e <= to) {
+            if (e - 1U > now) { push(e - 1U, base); }
+            push(e, base);
+            now = e;
+        }
+        now = std::max(now, to);
+    };
+    auto write = [&](std::uint64_t at, std::uint32_t b) {
+        advance(at);
+        push(at, base);  // the board steps just before applying a write ...
+        base = b;
+        push(at, base);  // ... and just after
+    };
+    auto look = [&](std::uint64_t at) {
+        advance(at);
+        push(at, base);
+        return h.back().full;
+    };
+    push(0, 0);
+
+    // ── how to make a reading rise at a given moment, through the base readings ──
+    struct Edge {
+        std::uint64_t at;
+        std::int32_t obs;
+        bool on;
+    };
+    constexpr std::uint64_t kPulse = 300U;  // how long a base reading is held set
+    constexpr std::uint64_t kSettle = 2000U;  // after a timed reading expires, before the next scene begins
+    const auto timer_of = [&](std::int32_t o) -> const Timer* {
+        for (const Timer& t : lo.timers) {
+            if (t.observation == o) { return &t; }
+        }
+        return nullptr;
+    };
+    // hold: how long the reading stays set after it rises; lead: how long before its rise its drive starts.
+    std::function<std::uint64_t(std::int32_t)> hold;
+    std::function<std::uint64_t(std::int32_t)> lead;
+    std::function<std::uint64_t(const Timer&)> gap;
+    gap = [&](const Timer& t) { return hold(t.source) + kPulse; };  // between the rises a Count needs
+    hold = [&](std::int32_t o) -> std::uint64_t {
+        const Timer* t = timer_of(o);
+        if (t == nullptr) { return kPulse; }
+        if (t->kind == 0) { return hold(t->source); }
+        if (t->kind == 1) { return hold(t->source) + t->window_ms; }
+        const std::uint64_t spread = static_cast<std::uint64_t>(t->times - 1) * gap(*t);
+        return t->window_ms > spread ? t->window_ms - spread : 1U;
+    };
+    lead = [&](std::int32_t o) -> std::uint64_t {
+        const Timer* t = timer_of(o);
+        if (t == nullptr) { return 0U; }
+        if (t->kind == 0) { return std::max(lead(t->source), lead(t->after)); }
+        if (t->kind == 1) { return lead(t->source); }
+        return static_cast<std::uint64_t>(t->times - 1) * gap(*t) + lead(t->source);
+    };
+    std::function<void(std::int32_t, std::uint64_t, std::vector<Edge>&)> rise;
+    rise = [&](std::int32_t o, std::uint64_t at, std::vector<Edge>& e) {
+        const Timer* t = timer_of(o);
+        if (t == nullptr) {
+            e.push_back({at, o, true});
+            e.push_back({at + kPulse, o, false});
+        } else if (t->kind == 0) {
+            rise(t->after, at, e);  // together counts as "after"
+            rise(t->source, at, e);
+        } else if (t->kind == 1) {
+            rise(t->source, at, e);
+        } else {
+            const std::uint64_t g = gap(*t);
+            for (std::int32_t k = 0; k < t->times; ++k) {
+                rise(t->source, at - static_cast<std::uint64_t>(t->times - 1 - k) * g, e);
+            }
+        }
+    };
+
+    // ── writing scenes ──
+    auto margin = [](std::uint32_t w) {
+        const std::uint32_t m = std::clamp<std::uint32_t>(w / 10U, 100U, 5000U);
+        return std::min(m, w / 4U);
+    };
+    auto dur = [](std::uint64_t ms) {
+        char b[48];
+        const auto tidy = [](std::string t, const std::string& zero) {
+            return t.size() > zero.size() && t.substr(t.size() - zero.size()) == zero ? t.substr(0, t.size() - zero.size()) : t;
+        };
+        if (ms >= 3600000U && ms % 60000U == 0U) {
+            std::snprintf(b, sizeof b, "%llu h %llu min", static_cast<unsigned long long>(ms / 3600000U),
+                          static_cast<unsigned long long>(ms % 3600000U / 60000U));
+            return tidy(b, " 0 min");
+        }
+        if (ms >= 60000U && ms % 1000U == 0U) {
+            std::snprintf(b, sizeof b, "%llu min %llu s", static_cast<unsigned long long>(ms / 60000U),
+                          static_cast<unsigned long long>(ms % 60000U / 1000U));
+            return tidy(b, " 0 s");
+        }
+        if (ms % 1000U == 0U) { return std::to_string(ms / 1000U) + " s"; }
+        std::snprintf(b, sizeof b, "%.1f s", static_cast<double>(ms) / 1000.0);
+        return std::string(b);
+    };
+    const auto name = [&](std::int32_t o) { return lo.arguments[static_cast<std::size_t>(o)].name; };
+    const auto names = [&](std::uint32_t m) {
+        std::string r;
+        for (std::int32_t o = 0; o < 32; ++o) {
+            if (has(m, o)) { r += (r.empty() ? "" : " + ") + name(o); }
+        }
+        return r;
+    };
+    // Quiet: write nothing, and let time pass until no timed reading remembers anything, as the board would.
+    auto memory_until = [&](const Timer& t) {
+        std::uint64_t last = 0;
+        bool any = false;
+        for (std::size_t i = h.size(); i-- > 0;) {
+            const bool event = t.kind == 0 ? rose(i, t.after) : (t.kind == 1 ? has(h[i].full, t.source) : rose(i, t.source));
+            if (event) { last = h[i].at; any = true; break; }
+        }
+        return any ? last + t.window_ms + margin(t.window_ms) : 0U;
+    };
+    // A scene's edges are written in time order, interleaved with its answers: run_until(T) writes those up to T.
+    std::vector<Edge> pending;
+    std::size_t next_edge = 0;
+    std::map<std::int32_t, int> level;
+    std::uint32_t scene_ctx = 0;
+    std::ostringstream buf;  // one scene, kept back until its answers are known to mean what they say
+    std::uint64_t start = 0;
+    // The base readings each timed reading is built from, through any chain.
+    std::function<std::uint32_t(std::int32_t)> inputs;
+    inputs = [&](std::int32_t o) -> std::uint32_t {
+        const Timer* t = timer_of(o);
+        if (t == nullptr) { return bit(o); }
+        return inputs(t->source) | (t->after >= 0 ? inputs(t->after) : 0U);
+    };
+    // Quiet before a scene that will write the base readings in `uses`: long enough that every timed reading built
+    // from any of them has forgotten earlier scenes, and that no timed reading is still set. A timed reading the
+    // scene cannot reach keeps its history; it stays clear through the scene, which the replay confirms either way.
+    auto scene = [&](std::uint32_t uses) {
+        pending.clear();
+        next_edge = 0;
+        write(now, 0);
+        const std::uint64_t from = now;
+        for (int round = 0; round < 64; ++round) {  // a chain releases one link per round
+            std::uint64_t until = now;
+            for (const Timer& t : lo.timers) {
+                if ((inputs(t.observation) & uses) != 0U) { until = std::max(until, memory_until(t)); }
+            }
+            if (until <= now && (look(now) & timed_bits) == 0U) { break; }
+            if (until <= now) {
+                // Wait for the next expiry, and then a margin: a bench in real time writes a few ms late, so a scene
+                // must not begin at the very millisecond an earlier timed reading lets go.
+                std::uint64_t e = 0;
+                if (!next_expiry(e)) { break; }
+                until = e + kSettle;
+            }
+            advance(until);
+        }
+        buf << "scene\t" << now - from << "\n";
+        start = now;
+    };
+    auto play = [&](std::vector<Edge> edges, std::uint32_t ctx) {
+        std::stable_sort(edges.begin(), edges.end(), [](const Edge& a, const Edge& b) { return a.at < b.at; });
+        pending = std::move(edges);
+        next_edge = 0;
+        level.clear();
+        scene_ctx = ctx;
+    };
+    auto run_until = [&](std::uint64_t until) {
+        // Each moment's mask after every edge at that moment: a reading pulsed twice at once stays set.
+        while (next_edge < pending.size() && pending[next_edge].at <= until) {
+            const std::uint64_t at = pending[next_edge].at;
+            for (; next_edge < pending.size() && pending[next_edge].at == at; ++next_edge) {
+                level[pending[next_edge].obs] += pending[next_edge].on ? 1 : -1;
+            }
+            std::uint32_t m = scene_ctx;
+            for (const auto& [o, n] : level) {
+                if (n > 0) { m |= bit(o); }
+            }
+            write(start + at, m);
+            buf << "set\t" << at << "\t0x" << std::hex << m << std::dec << "\n";
+        }
+    };
+    bool ok_scene = true;
+    auto expect = [&](std::uint64_t at, const std::string& label, std::int32_t subject, bool want_set,
+                      std::string* got = nullptr) {
+        run_until(at);
+        const std::uint32_t full = look(start + at);
+        if (subject >= 0 && has(full, subject) != want_set) { ok_scene = false; }
+        std::string a, o;
+        if (!decide(full, a, o)) { return false; }
+        buf << "expect\t" << at << "\t" << a << "\t" << label << "\n";
+        if (got != nullptr) { *got = a; }
+        return true;
+    };
+    std::vector<std::string> skipped;
+    auto finish = [&](const std::string& what) {
+        run_until(~0ULL);
+        if (ok_scene) {
+            out << buf.str();
+        } else {
+            // Keep the writes, so the board's history matches the replay's; drop the answers.
+            std::istringstream in(buf.str());
+            for (std::string l; std::getline(in, l);) {
+                if (l.rfind("expect\t", 0) != 0) { out << l << "\n"; }
+            }
+            skipped.push_back(what);
+        }
+        buf.str("");
+        buf.clear();
+        ok_scene = true;
+    };
+    // The readings with which a timed reading changes the decision, minus the readings that drive it.
+    auto context = [&](const Timer& t) {
+        std::uint32_t ctx = 0;
+        for (const SheetRow& r : rows) {
+            if (r.bit == t.observation) { ctx = r.with; }
+        }
+        std::vector<Edge> drive;
+        rise(t.observation, lead(t.observation) + 1U, drive);
+        for (const Edge& e : drive) { ctx &= ~bit(e.obs); }
+        return ctx & ~timed_bits;
+    };
+
+    scene(0);
+    if (!expect(0, "nothing set", -1, false)) { return false; }
+    finish("nothing set");
+
+    // Each timed reading on both sides of its window, with the readings that make it matter, shortest first.
+    std::vector<const Timer*> order;
+    for (const Timer& t : lo.timers) { order.push_back(&t); }
+    std::stable_sort(order.begin(), order.end(), [](const Timer* a, const Timer* b) { return a->window_ms < b->window_ms; });
+    for (const Timer* tp : order) {
+        const Timer& t = *tp;
+        const std::uint32_t ctx = context(t);
+        const std::string in_ctx = ctx != 0U ? ", with " + names(ctx) : "";
+        const std::uint32_t w = t.window_ms;
+        const std::uint32_t m = margin(w);
+        const std::string tn = name(t.observation) + ": ";
+        if (t.kind == 0) {
+            for (const std::uint32_t g : {w - m, w + m}) {
+                scene(inputs(t.observation) | ctx);
+                const std::uint64_t t0 = std::max(lead(t.after), lead(t.source) > g ? lead(t.source) - g : 0U);
+                std::vector<Edge> e;
+                rise(t.after, t0, e);
+                rise(t.source, t0 + g, e);
+                play(e, ctx);
+                if (!expect(t0 + g, tn + name(t.source) + " " + dur(g) + " after " + name(t.after) + in_ctx,
+                            t.observation, g <= w)) {
+                    return false;
+                }
+                finish(name(t.observation));
+            }
+        } else if (t.kind == 1) {
+            scene(inputs(t.observation) | ctx);
+            const std::uint64_t t0 = lead(t.source);
+            std::vector<Edge> e;
+            rise(t.source, t0, e);
+            play(e, ctx);
+            const std::uint64_t gone = t0 + hold(t.source);  // the last moment the source is set
+            if (!expect(gone + w - m, tn + name(t.source) + " last set " + dur(w - m) + " ago" + in_ctx, t.observation,
+                        true) ||
+                !expect(gone + w + m, tn + name(t.source) + " last set " + dur(w + m) + " ago" + in_ctx, t.observation,
+                        false)) {
+                return false;
+            }
+            finish(name(t.observation));
+        } else {
+            scene(inputs(t.observation) | ctx);
+            const std::uint64_t g = gap(t);
+            const std::uint64_t t0 = lead(t.source);
+            std::vector<Edge> e;
+            for (std::int32_t k = 0; k < t.times; ++k) { rise(t.source, t0 + static_cast<std::uint64_t>(k) * g, e); }
+            play(e, ctx);
+            const std::uint64_t last = t0 + static_cast<std::uint64_t>(t.times - 1) * g;
+            // Read it once the base readings that drove it have cleared again, if the window allows, so the answer
+            // shows the timed reading and not the readings it came from.
+            std::uint64_t read_at = last + 1U;
+            for (const Edge& x : pending) {
+                if (!x.on) { read_at = std::max(read_at, x.at + 1U); }
+            }
+            if (read_at > t0 + w - m) { read_at = last + 1U; }
+            if (!expect(read_at, tn + std::to_string(t.times) + " times " + name(t.source) + " within " +
+                                     dur(last - t0) + ", read " + dur(read_at - t0) + " after the first" + in_ctx,
+                        t.observation, true) ||
+                !expect(t0 + w + m, tn + "the first of those " + dur(w + m) + " ago, so " +
+                                        std::to_string(t.times - 1) + " in the window" + in_ctx,
+                        t.observation, false)) {
+                return false;
+            }
+            finish(name(t.observation));
+        }
+    }
+
+    // Then the sheet's own lines, each after a quiet spell: they must come out exactly as the sheet says, which
+    // checks the sheet's quick rule for what appears at once against the full replay. They come last because they
+    // set readings that long windows would otherwise have to wait to forget.
+    std::string got;
+    const auto line = [&](std::uint32_t mask, const std::string& label, const std::string& want) {
+        scene(mask);
+        write(start, mask);
+        buf << "set\t0\t0x" << std::hex << mask << std::dec << "\n";
+        if (!expect(0, label, -1, false, &got)) { return false; }
+        finish(label);
+        if (got != want) {
+            std::cerr << "error: internal: the sheet says " << want << " for '" << label << "' but replaying it gives "
+                      << got << " (timed readings at once: " << names(immediate(mask) & timed_bits) << ")\n";
+            return false;
+        }
+        return true;
+    };
+    for (const SheetRow& r : rows) {
+        if (has(timed_bits, r.bit)) { continue; }  // a timed reading is driven by the scenes above
+        if (!line(r.mask, name(r.bit) + " alone", r.alone)) { return false; }
+        if (r.with != 0U) {
+            if (!line(r.with | r.mask, name(r.bit) + " with " + r.with_names, r.then)) { return false; }
+            if (!line(r.with, r.with_names + " without " + name(r.bit), r.without)) { return false; }
+        }
+    }
+    for (const std::string& s : skipped) {
+        std::cerr << "note: the bench script cannot drive '" << s << "' across its window on its own (the readings it "
+                  << "is built from share inputs); its answers are left out of the bench test, so check it on the "
+                  << "plant\n";
+    }
+    return true;
+}
+
 /// The commissioning sheet: what the device must do with each reading on its own, for a person to confirm on the real
 /// plant. Exhaustive validation proves the logic over every combination; it cannot prove that the wire labelled
 /// "overspeed" is the overspeed switch, that a threshold is set where the document says, or that the controller writes
@@ -1147,6 +1569,25 @@ struct Options {
         std::snprintf(b, sizeof b, "%g", static_cast<double>(v) / 1000.0);
         return std::string(b);
     };
+    // A timed rulebook: setting readings on the plant also sets the timed readings that react at once (a "within
+    // last" reading of one of them, an "after" reading whose two sources appear together), so the sheet's answers
+    // include those. Readings appear after a quiet spell. Without timed readings this is zero and nothing changes.
+    std::uint32_t timed_bits = 0;
+    for (const quorum::cbc::LoweredTimer& t : lo.timers) { timed_bits |= 1U << static_cast<std::uint32_t>(t.observation); }
+    auto has = [](std::uint32_t m, std::int32_t o) { return o >= 0 && (m & (1U << static_cast<std::uint32_t>(o))) != 0U; };
+    // In table order, so a timed reading watching another sees it: "within last" of a reading that is set is set,
+    // "after" of two that appear together is set, and a count needs several rises, so never at once.
+    auto immediate = [&](std::uint32_t m) {
+        std::uint32_t r = m;
+        for (const quorum::cbc::LoweredTimer& t : lo.timers) {
+            const bool on = (t.kind == 1 && has(r, t.source)) || (t.kind == 0 && has(r, t.source) && has(r, t.after));
+            if (on) { r |= 1U << static_cast<std::uint32_t>(t.observation); }
+        }
+        return r & timed_bits;
+    };
+    auto decide_plant = [&](std::uint32_t m, std::string& a, std::string& o) {
+        return decide(m | immediate(m & ~timed_bits), a, o);
+    };
     char fp[16];
     std::snprintf(fp, sizeof fp, "0x%08x", quorum::cbc::fingerprint(lo));
     out << "quorum-commissioning 1\ncasebook " << lo.casebook << " v" << lo.version << "\nfingerprint " << fp << "\n";
@@ -1157,6 +1598,7 @@ struct Options {
     std::string outcome;
     if (!decide(0, action, outcome)) { return false; }
     out << "rest\t" << action << "\t" << outcome << "\n";
+    std::vector<SheetRow> rows;
     for (std::int32_t b = 0; b < lo.observation_count; ++b) {
         const quorum::cbc::LoweredArgument& a = lo.arguments[static_cast<std::size_t>(b)];
         std::string how = "presence bit " + std::to_string(b);
@@ -1198,7 +1640,7 @@ struct Options {
             }
         }
         const std::uint32_t bit = 1U << static_cast<std::uint32_t>(b);
-        if (!decide(bit, action, outcome)) { return false; }
+        if (!decide_plant(bit, action, outcome)) { return false; }
         // The smallest set of other readings with which this one changes the decision: setting it then shows, on the
         // real plant, that it arrives and matters. Up to three others, fewest first, then lowest bits first.
         std::string with = "-";
@@ -1207,9 +1649,10 @@ struct Options {
         const std::int32_t n = lo.observation_count;
         std::vector<std::int32_t> others;
         for (std::int32_t k = 0; k < n; ++k) {
-            if (k != b) { others.push_back(k); }
+            if (k != b && !has(timed_bits, k)) { others.push_back(k); }  // a timed reading cannot be set by hand
         }
         bool found = false;
+        std::uint32_t with_mask = 0;
         for (std::int32_t size = 0; size <= 3 && !found && size <= static_cast<std::int32_t>(others.size()); ++size) {
             std::vector<std::int32_t> pick(static_cast<std::size_t>(size));
             for (std::int32_t i = 0; i < size; ++i) { pick[static_cast<std::size_t>(i)] = i; }
@@ -1219,9 +1662,10 @@ struct Options {
                     m |= 1U << static_cast<std::uint32_t>(others[static_cast<std::size_t>(i)]);
                 }
                 std::string a1, o1, a0, o0;
-                if (!decide(m | bit, a1, o1) || !decide(m, a0, o0)) { return false; }
+                if (!decide_plant(m | bit, a1, o1) || !decide_plant(m, a0, o0)) { return false; }
                 if (a1 != a0) {
                     found = true;
+                    with_mask = m;
                     then_action = a1;
                     without_action = a0;
                     with.clear();
@@ -1245,7 +1689,9 @@ struct Options {
         }
         out << "row\t" << b << "\t" << a.name << "\t" << clean(how) << "\t" << action << "\t" << outcome << "\t"
             << with << "\t" << then_action << "\t" << without_action << "\t" << clean(a.description) << "\n";
+        rows.push_back({b, bit, with == "alone" || with == "-" ? 0U : with_mask, with, action, then_action, without_action});
     }
+    if (!lo.timers.empty() && !write_timed_script(lo, rows, decide, immediate, out)) { return false; }
     return out.good();
 }
 

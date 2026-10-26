@@ -493,11 +493,11 @@ Lowered lower(const Casebook& cb, Diagnostics& diag) {
 
     // ── Step 4c: resolve the timed readings ─────────────────────────────────
     //
-    // A timer watches base readings only: an `observe`, or a reading a channel sets. Watching another timed reading
-    // would make one timer's output depend on the order the device steps them in, so it is refused.
+    // A timer watches readings: an `observe`, a reading a channel sets, or another timed reading. Never a
+    // conclusion: that would feed the rules' own answers back into their inputs, and exhaustive validation would no
+    // longer cover what the device does. The table is ordered so that each timer comes after those it watches (the
+    // device steps them in table order), and a loop of timed readings watching each other is refused.
     {
-        std::set<std::string> timed_names;
-        for (const TimedReading& r : cb.timed) { timed_names.insert(r.name); }
         const auto base_reading = [&](const std::string& name, const TimedReading& r, const char* what) -> std::int32_t {
             const auto it = idx.find(name);
             bool conclusion = false;
@@ -515,9 +515,8 @@ Lowered lower(const Casebook& cb, Diagnostics& diag) {
                                        "needs instead");
                 return -1;
             }
-            if (timed_names.count(name) != 0) {
-                diag.error(r.line, "reading '" + r.name + "' watches '" + name +
-                                       "', which is itself a timed reading. Watch the reading it is built from instead");
+            if (name == r.name) {
+                diag.error(r.line, "reading '" + r.name + "' watches itself; watch the reading it is built from instead");
                 return -1;
             }
             return it->second;
@@ -542,6 +541,45 @@ Lowered lower(const Casebook& cb, Diagnostics& diag) {
                                    "millisecond clock can compare safely");
             }
             lo.timers.push_back(lt);
+        }
+        // Order: declaration order, except that a timer moves after any timer it watches. Without chains this keeps
+        // the declaration order exactly, so tables (and fingerprints) of earlier rulebooks do not change.
+        {
+            std::vector<LoweredTimer> ordered;
+            std::vector<bool> placed(lo.timers.size(), false);
+            std::set<std::int32_t> done;  // observations of the timers already placed
+            std::set<std::int32_t> outputs;
+            for (const LoweredTimer& t : lo.timers) { outputs.insert(t.observation); }
+            const auto ready = [&](const LoweredTimer& t) {
+                for (const std::int32_t w : {t.source, t.after}) {
+                    if (w >= 0 && outputs.count(w) != 0 && done.count(w) == 0) { return false; }
+                }
+                return true;
+            };
+            while (ordered.size() < lo.timers.size()) {
+                bool progress = false;
+                for (std::size_t i = 0; i < lo.timers.size(); ++i) {
+                    if (placed[i] || !ready(lo.timers[i])) { continue; }
+                    placed[i] = true;
+                    done.insert(lo.timers[i].observation);
+                    ordered.push_back(lo.timers[i]);
+                    progress = true;
+                    break;  // restart from the first declared, so the order is declaration order where it can be
+                }
+                if (!progress) {
+                    std::string names;
+                    int line = 0;
+                    for (std::size_t i = 0; i < lo.timers.size(); ++i) {
+                        if (placed[i]) { continue; }
+                        names += (names.empty() ? "'" : ", '") + cb.timed[i].name + "'";
+                        if (line == 0) { line = cb.timed[i].line; }
+                    }
+                    diag.error(line, "timed readings " + names + " watch each other in a loop, so none of them can "
+                                     "be worked out first; break the loop by watching a base reading instead");
+                    break;
+                }
+            }
+            if (ordered.size() == lo.timers.size()) { lo.timers = std::move(ordered); }
         }
         // A doubt that discards a reading does not reach a timed reading built from it: the device works the timed
         // reading out from the raw bits. Usually the author wants both discarded, so say so when only one is.

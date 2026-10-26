@@ -834,12 +834,13 @@ additionally gated with `-ffreestanding -fno-exceptions -fno-rtti -fno-threadsaf
   over Modbus (41 of 41 states on a Pico 2). But only a person working through it on the real machine checks the
   wiring, and no plant has done so yet.
 - **Time is limited to three forms, and when they are set is tested, not proved.** A rulebook can say "X within T
-  after Y", "X within the last T" and "X N times in T", and hold a threshold "for T". The rules are still checked in
-  every combination of readings, but whether the device sets a timed reading at the right moment is shown by tests
-  against a second implementation, not by exhaustive validation. Timed readings cannot be nested or chained, a reading
-  set and cleared between two device steps (about 1 ms apart) is missed. On a Pico 2 and an Uno R4, each with its own
-  clock, 8 of 8 timed checks passed (`firmware/*/measured-timed-2026-10-26.txt`); the 5-minute and 1-hour expiries were
-  checked only on the host.
+  after Y", "X within the last T" and "X N times in T", chain them, and hold a threshold "for T". The rules are still
+  checked in every combination of readings, but whether the device sets a timed reading at the right moment is shown
+  by tests against a second implementation, not by exhaustive validation. A timed reading cannot watch a conclusion,
+  and the device sees only what the controller writes, so a pulse on the plant shorter than the controller's scan
+  time is missed. On a Pico 2 and an Uno R4, each with its own clock, 8 of 8 timed checks passed, and the Pico waited
+  out the 5-minute and 1-hour windows (`firmware/*/measured-timed*-2026-10-26.txt`). The studio's bench test covers
+  timed rulebooks on the board's test clock, which stays on until the board is reset.
 - **RPN does not translate.** Severity does, through ASPIC+ preference ordering (`severity 1..10` on a claim), but
   occurrence and detection are population statistics with no meaning for the single machine a device is attached to.
 - **`exclusive` groups are validated even where a declared binding makes them unreachable.** Conservative on purpose:

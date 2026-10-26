@@ -250,6 +250,7 @@
       <a id="sheetdl"><button id="sheetbtn" class="ghost" disabled>Commissioning sheet</button></a>
       <input id="benchport" placeholder="serial port, e.g. COM4 or /dev/ttyACM0" style="width:250px" aria-label="Board serial port">
       <button id="benchbtn" class="ghost" disabled>Test the board</button>
+      <label class="hint" title="Timed readings are tested on the board's test clock, in seconds. That needs a board that has just been reset. Tick this to wait in real time instead when it has not."><input type="checkbox" id="benchreal"> wait in real time if needed</label>
     </div>
     <pre id="benchout" style="display:none;max-height:260px;overflow:auto"></pre>
   </section>
@@ -611,9 +612,10 @@ $("benchbtn").onclick = async () => {
   const out = $("benchout"); out.style.display = ""; out.textContent = "Testing the board on " + $("benchport").value + "...";
   $("benchbtn").disabled = true;
   try {
-    const r = await api("/api/bench/" + imageId, { port: $("benchport").value });
+    const r = await api("/api/bench/" + imageId, { port: $("benchport").value, realTime: $("benchreal").checked });
     out.textContent = r.steps.map(s => (s.pass ? "PASS  " : "FAIL  ") + s.label + ": expect " + s.expect + ", board " + s.got).join("\n") +
-      `\n\n${r.passed} of ${r.passed + r.failed} states as the sheet says (board image 0x${r.fingerprint.toString(16).padStart(8, "0")}).`;
+      `\n\n${r.passed} of ${r.passed + r.failed} ${r.timed ? "timed checks" : "states"} as the sheet says (board image 0x${r.fingerprint.toString(16).padStart(8, "0")}).` +
+      (r.testClock ? "\nThe board's test clock is on until the board is reset. Unplug it, or write the image again, before it goes into service." : "");
   } catch (e) { out.textContent = e.message; }
   $("benchbtn").disabled = false;
 };
