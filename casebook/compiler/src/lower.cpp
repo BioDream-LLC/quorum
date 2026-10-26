@@ -210,6 +210,19 @@ Lowered lower(const Casebook& cb, Diagnostics& diag) {
         }
     }
 
+    // ── Step 1c: timed readings are observations too ────────────────────────
+    //
+    // The device sets them from other readings over time (binding.hpp, Timers); to the framework each is one more
+    // presence bit, so every rule that uses one is still checked in every state. They come after the channel
+    // readings, so a casebook without them numbers its observations exactly as before.
+    for (const TimedReading& r : cb.timed) {
+        Observe o;
+        o.name = r.name;
+        o.description = r.description;
+        o.line = r.line;
+        observes.push_back(std::move(o));
+    }
+
     // ── Step 2: resolve symbols, and reject duplicates ──────────────────────
     Symbols sym;
     std::map<std::string, int> first_seen;
@@ -476,6 +489,84 @@ Lowered lower(const Casebook& cb, Diagnostics& diag) {
             lo.thresholds.push_back(std::move(lt));
         }
         lo.channels.push_back(std::move(lc));
+    }
+
+    // ── Step 4c: resolve the timed readings ─────────────────────────────────
+    //
+    // A timer watches base readings only: an `observe`, or a reading a channel sets. Watching another timed reading
+    // would make one timer's output depend on the order the device steps them in, so it is refused.
+    {
+        std::set<std::string> timed_names;
+        for (const TimedReading& r : cb.timed) { timed_names.insert(r.name); }
+        const auto base_reading = [&](const std::string& name, const TimedReading& r, const char* what) -> std::int32_t {
+            const auto it = idx.find(name);
+            bool conclusion = false;
+            for (const Presumption& p : cb.presumptions) { conclusion = conclusion || p.name == name; }
+            for (const Action& a : cb.actions) { conclusion = conclusion || a.name == name; }
+            if (it == idx.end() && !conclusion) {
+                diag.error(r.line, "reading '" + r.name + "' watches undefined reading '" + name + "'" + what +
+                                       "; declare it with `observe`, or check the spelling");
+                return -1;
+            }
+            if (conclusion || it->second >= lo.observation_count) {
+                diag.error(r.line, "reading '" + r.name + "' watches '" + name +
+                                       "', which is a conclusion, not a reading. A timed reading can watch only an "
+                                       "`observe` or a reading a channel sets: watch the readings the conclusion "
+                                       "needs instead");
+                return -1;
+            }
+            if (timed_names.count(name) != 0) {
+                diag.error(r.line, "reading '" + r.name + "' watches '" + name +
+                                       "', which is itself a timed reading. Watch the reading it is built from instead");
+                return -1;
+            }
+            return it->second;
+        };
+        for (const TimedReading& r : cb.timed) {
+            LoweredTimer lt;
+            lt.line = r.line;
+            lt.kind = r.kind == TimedReading::Kind::After ? 0 : (r.kind == TimedReading::Kind::Recent ? 1 : 2);
+            lt.observation = idx.count(r.name) != 0 ? idx[r.name] : -1;
+            lt.source = base_reading(r.source, r, "");
+            if (r.kind == TimedReading::Kind::After) {
+                lt.after = base_reading(r.after, r, " after 'after'");
+                if (r.after == r.source) {
+                    diag.error(r.line, "reading '" + r.name + "' waits for '" + r.source +
+                                           "' after itself; write two different readings");
+                }
+            }
+            lt.window_ms = r.window_ms;
+            lt.times = r.kind == TimedReading::Kind::Count ? r.times : 0;
+            if (r.window_ms > 0x7FFFFFFFU) {
+                diag.error(r.line, "reading '" + r.name + "' has a time over 24 days, longer than the device's "
+                                   "millisecond clock can compare safely");
+            }
+            lo.timers.push_back(lt);
+        }
+        // A doubt that discards a reading does not reach a timed reading built from it: the device works the timed
+        // reading out from the raw bits. Usually the author wants both discarded, so say so when only one is.
+        std::map<std::string, std::set<std::string>> discards;  // doubt -> readings it undermines
+        for (const Presumption& p : cb.presumptions) {
+            for (const std::string& u : p.undermines) { discards[p.name].insert(u); }
+        }
+        for (const AttackDecl& a : cb.attacks) {
+            if (a.kind != AttackKind::Undermines) { continue; }
+            for (const std::string& u : a.to) { discards[a.from].insert(u); }
+        }
+        for (const TimedReading& r : cb.timed) {
+            for (const auto& [doubt, readings] : discards) {
+                for (const std::string& from : {r.source, r.after}) {
+                    if (from.empty() || readings.count(from) == 0 || readings.count(r.name) != 0) { continue; }
+                    diag.warn(r.line, "'" + doubt + "' discards '" + from + "' but not '" + r.name +
+                                          "', which the device works out from it. If a suspect " + from +
+                                          " should not set " + r.name + " either, add " + r.name + " to what " +
+                                          doubt + " undermines");
+                }
+            }
+        }
+        if (lo.timers.size() > 8U) {
+            diag.error(cb.timed[8].line, "more than 8 timed readings; the board runtime has room for 8");
+        }
     }
 
     // The usable counterpart of each split reading.

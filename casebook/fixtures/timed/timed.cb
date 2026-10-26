@@ -1,0 +1,35 @@
+casebook timed-demo v1
+source "quorum fixture: timed readings" dated 2026-10-25 by "quorum project"
+note "A pump whose discharge pressure goes high within 10 s of a start is pumping against a closed valve, and must"
+note "stop. The same pressure later is a blockage, and gets an alarm. An overload relay that trips three times in"
+note "an hour means the motor must not be restarted. A bearing that ran hot in the last 5 minutes is still"
+note "suspect after it cools. Time decides only when each timed reading is set; every rule is still checked in every"
+note "combination of readings."
+
+observe motor_started "the motor start command is on"
+observe pressure_high "discharge pressure above the limit"
+observe overload_trip "the motor overload relay has tripped"
+observe bearing_hot   "bearing temperature above the limit"
+observe gauge_suspect "the pressure gauge failed its last check"
+observe flushing      "a line flush is in progress"
+
+reading dead_head       "pressure went high within 10 s of a start" when pressure_high within 10s after motor_started
+reading repeated_trips  "the overload relay tripped 3 times within an hour" when overload_trip 3 times in 1h
+reading ran_hot         "the bearing was hot at some point in the last 5 minutes" when bearing_hot within last 5m
+
+claim closed_valve  "pumping against a closed discharge valve" severity 8 needs dead_head
+claim blockage      "discharge pressure high while running" severity 5 needs pressure_high
+claim lockout       "repeated overload trips: do not restart" severity 9 needs repeated_trips
+claim overheating   "bearing hot now" severity 7 needs bearing_hot
+claim cooling_down  "bearing ran hot recently" severity 4 needs ran_hot
+
+excuse flush "pressure runs high during a line flush" needs flushing
+flush undercuts blockage
+
+doubt gauge_bad "the pressure gauge cannot be trusted" needs gauge_suspect
+  undermines pressure_high dead_head
+
+action run idle
+action alarm when any blockage cooling_down
+action stop safe when any closed_valve lockout overheating
+prefer stop over alarm over run

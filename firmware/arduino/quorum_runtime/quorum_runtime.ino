@@ -32,6 +32,7 @@ static rt::RtPolicy g_policy[rt::kMaxMembers];
 static rt::SweepResult g_result[rt::kMaxMembers];
 static rt::GuardSweep g_guard[rt::kMaxMembers];
 static rt::RtBinding g_binding;
+static rt::RtTimers g_timers;
 static rt::modbus::QuorumMap g_map;
 static rt::modbus::Slave g_slave(1);
 static bool g_modbus = false;  // entered on the first valid request, never left; see the Pico runtime for why
@@ -100,7 +101,8 @@ void setup() {
         g_map.attach(g_pal, g_fw, g_solver, g_policy);
     } else {
         const bool bound = g_cb.channel_count > 0 && rt::make_binding(g_binding, g_cb) == quorum::binding::Status::Ok;
-        g_map.attach(g_cb, bound ? &g_binding : nullptr, g_fw, g_solver, g_policy[0]);
+        const bool timed = g_cb.timer_count > 0 && rt::make_timers(g_timers, g_cb) == quorum::binding::Status::Ok;
+        g_map.attach(g_cb, bound ? &g_binding : nullptr, g_fw, g_solver, g_policy[0], timed ? &g_timers : nullptr);
     }
 }
 
@@ -127,6 +129,8 @@ static bool serve_modbus() {
         if (g_slave.frames_handled() != before) { g_modbus = true; }
         if (n > 0) { Serial.write(g_slave.response(), n); }
     }
+    // Timed readings must see their sources between requests too.
+    if (g_modbus) { g_map.tick(millis()); }
     return g_modbus;
 }
 

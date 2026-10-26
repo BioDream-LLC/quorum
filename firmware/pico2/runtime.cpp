@@ -46,6 +46,7 @@ rt::RtPolicy g_policy[rt::kMaxMembers];
 rt::SweepResult g_result[rt::kMaxMembers];
 rt::GuardSweep g_guard[rt::kMaxMembers];
 rt::RtBinding g_binding;
+rt::RtTimers g_timers;
 rt::modbus::QuorumMap g_map;
 rt::modbus::Slave g_slave(1);
 
@@ -65,6 +66,8 @@ void serve_modbus_if_asked() {
         const int c = getchar_timeout_us(modbus ? 1000 : 0);
         if (c == PICO_ERROR_TIMEOUT) {
             if (!modbus) { return; }
+            // Timed readings must see their sources between requests too: about once a millisecond.
+            g_map.tick(to_ms_since_boot(get_absolute_time()));
             continue;
         }
         const std::uint32_t before = g_slave.frames_handled();
@@ -124,7 +127,8 @@ int main() {
             g_map.attach(g_pal, g_fw, g_solver, g_policy);
         } else {
             const bool bound = g_cb.channel_count > 0 && rt::make_binding(g_binding, g_cb) == quorum::binding::Status::Ok;
-            g_map.attach(g_cb, bound ? &g_binding : nullptr, g_fw, g_solver, g_policy[0]);
+            const bool timed = g_cb.timer_count > 0 && rt::make_timers(g_timers, g_cb) == quorum::binding::Status::Ok;
+            g_map.attach(g_cb, bound ? &g_binding : nullptr, g_fw, g_solver, g_policy[0], timed ? &g_timers : nullptr);
         }
     }
 

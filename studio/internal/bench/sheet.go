@@ -90,6 +90,17 @@ func Parse(text string) (Sheet, error) {
 }
 
 // HTML is the printable loop-check sheet: one line per reading, with what must happen and room for who saw it.
+// Timed returns how many readings the board works out itself over time (`reading ... when ...` in the rulebook).
+func (s Sheet) Timed() int {
+	n := 0
+	for _, r := range s.Rows {
+		if strings.HasPrefix(r.How, "timed:") {
+			n++
+		}
+	}
+	return n
+}
+
 func (s Sheet) HTML(source string) string {
 	e := html.EscapeString
 	var b strings.Builder

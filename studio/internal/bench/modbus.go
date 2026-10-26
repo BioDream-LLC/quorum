@@ -126,12 +126,18 @@ type Result struct {
 
 // Run drives the board on port through every step of the sheet and compares each decision with the sheet. It
 // refuses a board that runs a different image, and a rulebook with raw channels: those readings come from samples
-// the controller must keep writing, which a bench test cannot stand in for honestly.
+// the controller must keep writing, which a bench test cannot stand in for honestly. It refuses timed readings for the
+// same reason: the board sets them from the history of other readings and ignores a written bit.
 func Run(ctx context.Context, port string, s Sheet) (Result, error) {
 	res := Result{Port: port}
 	if s.Channels > 0 {
 		return res, errors.New("this rulebook reads raw channels, which the bench test does not drive; use the " +
 			"printed sheet on the plant instead")
+	}
+	if n := s.Timed(); n > 0 {
+		return res, fmt.Errorf("this rulebook has %d timed readings, which the board works out itself from other "+
+			"readings over time, so the bench test cannot set them by writing a bit; use the printed sheet on the plant "+
+			"instead", n)
 	}
 	steps, err := s.Steps()
 	if err != nil {

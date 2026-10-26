@@ -14,6 +14,15 @@ endif()
 
 add_test(NAME binding COMMAND test_binding)
 
+# Timed readings: each kind, the refusals, and a random comparison with a whole-history reference.
+add_executable(test_timers test/test_timers.cpp)
+target_link_libraries(test_timers PRIVATE quorum_binding)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(test_timers PRIVATE
+        -Wall -Wextra -Wpedantic -Wconversion -Wsign-conversion -Wshadow -Werror)
+endif()
+add_test(NAME binding_timers COMMAND test_timers)
+
 # Freestanding gate. No hosted runtime, no exceptions, no RTTI, no thread-safe statics -- and no libm, so any
 # accidental floating-point arithmetic fails here rather than on a part without an FPU.
 add_library(quorum_binding_freestanding_check OBJECT test/freestanding_check.cpp)

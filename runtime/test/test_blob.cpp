@@ -113,6 +113,22 @@ void check_tables(const rt::Casebook& r) {
     static rt::RtBinding binding;
     expect(rt::make_binding(binding, r) == quorum::binding::Status::Ok, "the runtime binding configures");
 #endif
+#if QUORUM_HAS_TIMERS
+    bool timers = r.timer_count == cb::kTimerCount;
+    for (std::int32_t i = 0; timers && i < r.timer_count; ++i) {
+        const auto& a = r.timers[i];
+        const auto& b = cb::kTimers[i];
+        timers = a.kind == b.kind && a.observation == b.observation && a.source == b.source && a.after == b.after &&
+                 a.window_ms == b.window_ms && a.times == b.times;
+    }
+    expect(timers, "every timed reading");
+    static rt::RtTimers rtimers;
+    expect(rt::make_timers(rtimers, r) == quorum::binding::Status::Ok, "the runtime timers configure");
+    static cb::CaseTimers htimers;
+    expect(cb::make_timers(htimers) == quorum::binding::Status::Ok, "the header's timers configure");
+#else
+    expect(r.timer_count == 0, "no timed readings in an image without them");
+#endif
 }
 
 [[nodiscard]] std::uint32_t check_states(const rt::Casebook& r) {
@@ -204,6 +220,42 @@ void check_refusals(const std::vector<std::uint8_t>& good) {
             expect(rt::load(b.data(), b.size(), r) == rt::BlobStatus::FingerprintMismatch,
                    "a changed setpoint with a repaired CRC is refused");
         }
+    }
+
+    if (orig.timer_count > 0) {
+        // The first timed reading's record (kind, observation, source, after, window, times): lengthen its window.
+        const quorum::binding::TimerSpec& tm = orig.timers[0];
+        const std::uint32_t rec[6] = {static_cast<std::uint32_t>(tm.kind), static_cast<std::uint32_t>(tm.observation),
+                                      static_cast<std::uint32_t>(tm.source), static_cast<std::uint32_t>(tm.after),
+                                      tm.window_ms, static_cast<std::uint32_t>(tm.times)};
+        const auto word = [&good](std::size_t k) {
+            return static_cast<std::uint32_t>(good[k]) | (static_cast<std::uint32_t>(good[k + 1]) << 8U) |
+                   (static_cast<std::uint32_t>(good[k + 2]) << 16U) | (static_cast<std::uint32_t>(good[k + 3]) << 24U);
+        };
+        std::size_t at = 0, hits = 0;
+        for (std::size_t k = 0; k + 24U <= good.size() - 4U; k += 4U) {
+            bool same = true;
+            for (std::size_t w = 0; w < 6U && same; ++w) { same = word(k + 4U * w) == rec[w]; }
+            if (same) { at = k + 16U; ++hits; }
+        }
+        expect(hits == 1U, "the first timed-reading record occurs once in the image, so it can be edited");
+        if (hits == 1U) {
+            b = good;
+            b[at + 1U] = static_cast<std::uint8_t>(b[at + 1U] ^ 0x01U);  // the window, longer by 256 ms
+            put_crc(b);
+            expect(rt::load(b.data(), b.size(), r) == rt::BlobStatus::FingerprintMismatch,
+                   "a changed timer window with a repaired CRC is refused");
+            b = good;
+            b[at - 16U] = 2U;  // After becomes Count: a count of 0 cannot configure
+            put_crc(b);
+            expect(rt::load(b.data(), b.size(), r) == rt::BlobStatus::Malformed,
+                   "a timed-reading table that cannot configure is refused at load");
+        }
+        b = good;
+        b[4] = 3U;
+        put_crc(b);
+        expect(rt::load(b.data(), b.size(), r) != rt::BlobStatus::Ok,
+               "a timed image relabelled as format 3 does not load with its timers silently dropped");
     }
 
     expect(rt::load(good.data(), good.size() - 8U, r) == rt::BlobStatus::TooShort, "a truncated image is refused");

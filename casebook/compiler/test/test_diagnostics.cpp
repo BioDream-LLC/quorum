@@ -397,6 +397,102 @@ int main() {
          "action s safe when hot\n"
          "prefer s over i\n",
          4, "wibble", "wibble"},
+
+        {"timed reading with no when clause",
+         "casebook t v1\n"
+         "source \"d\" dated 2026-01-01 by \"x\"\n"
+         "observe hot \"hot\"\n"
+         "observe start \"start\"\n"
+         "reading late \"late\"\n"
+         "claim c \"c\" needs hot\n"
+         "action i idle\n"
+         "action s safe when c\n"
+         "prefer s over i\n",
+         5, "'when'", "late"},
+
+        {"timed reading in a shape cbc cannot read",
+         "casebook t v1\n"
+         "source \"d\" dated 2026-01-01 by \"x\"\n"
+         "observe hot \"hot\"\n"
+         "observe start \"start\"\n"
+         "reading late \"late\" when hot after start\n"
+         "claim c \"c\" needs hot\n"
+         "action i idle\n"
+         "action s safe when c\n"
+         "prefer s over i\n",
+         5, "within 10s after", "late"},
+
+        {"timed reading counting once",
+         "casebook t v1\n"
+         "source \"d\" dated 2026-01-01 by \"x\"\n"
+         "observe hot \"hot\"\n"
+         "observe start \"start\"\n"
+         "reading again \"again\" when hot 1 times in 1h\n"
+         "claim c \"c\" needs hot\n"
+         "action i idle\n"
+         "action s safe when c\n"
+         "prefer s over i\n",
+         5, "2 to 16", "again"},
+
+        {"timed reading with a bad duration",
+         "casebook t v1\n"
+         "source \"d\" dated 2026-01-01 by \"x\"\n"
+         "observe hot \"hot\"\n"
+         "observe start \"start\"\n"
+         "reading late \"late\" when hot within soon after start\n"
+         "claim c \"c\" needs hot\n"
+         "action i idle\n"
+         "action s safe when c\n"
+         "prefer s over i\n",
+         5, "duration", "soon"},
+
+        {"timed reading watching an unknown reading",
+         "casebook t v1\n"
+         "source \"d\" dated 2026-01-01 by \"x\"\n"
+         "observe hot \"hot\"\n"
+         "observe start \"start\"\n"
+         "reading late \"late\" when hot within 5s after strat\n"
+         "claim c \"c\" needs hot\n"
+         "action i idle\n"
+         "action s safe when c\n"
+         "prefer s over i\n",
+         5, "undefined", "strat"},
+
+        {"timed reading watching itself",
+         "casebook t v1\n"
+         "source \"d\" dated 2026-01-01 by \"x\"\n"
+         "observe hot \"hot\"\n"
+         "observe start \"start\"\n"
+         "reading late \"late\" when hot within 5s after hot\n"
+         "claim c \"c\" needs hot\n"
+         "action i idle\n"
+         "action s safe when c\n"
+         "prefer s over i\n",
+         5, "two different", "late"},
+
+        {"timed reading watching a conclusion",
+         "casebook t v1\n"
+         "source \"d\" dated 2026-01-01 by \"x\"\n"
+         "observe hot \"hot\"\n"
+         "observe start \"start\"\n"
+         "reading late \"late\" when c within last 5s\n"
+         "claim c \"c\" needs hot\n"
+         "action i idle\n"
+         "action s safe when c\n"
+         "prefer s over i\n",
+         5, "conclusion", "c"},
+
+        {"timed reading watching a timed reading",
+         "casebook t v1\n"
+         "source \"d\" dated 2026-01-01 by \"x\"\n"
+         "observe hot \"hot\"\n"
+         "observe start \"start\"\n"
+         "reading r1 \"r1\" when hot within last 5s\nreading r2 \"r2\" when r1 within last 5s\n"
+         "claim c \"c\" needs hot\n"
+         "action i idle\n"
+         "action s safe when c\n"
+         "prefer s over i\n",
+         6, "itself a timed reading", "r1"},
     };
 
     for (const Case& c : cases) { run(c); }

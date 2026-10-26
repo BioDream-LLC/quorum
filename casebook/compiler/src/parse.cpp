@@ -220,12 +220,15 @@ std::uint32_t parse_duration_ms(const std::string& text, Diagnostics& diag, int 
     } else if (ends_with("m")) {
         digits.resize(digits.size() - 1);
         multiplier = 60000;
+    } else if (ends_with("h")) {
+        digits.resize(digits.size() - 1);
+        multiplier = 3600000;
     }
     try {
         std::size_t used = 0;
         const double v = std::stod(digits, &used);
         if (used != digits.size() || v < 0.0) {
-            diag.error(line, "'" + text + "' is not a duration; write 5s, 500ms, 2m or a plain millisecond count");
+            diag.error(line, "'" + text + "' is not a duration; write 500ms, 5s, 2m, 1h or a plain millisecond count");
             return 0;
         }
         const double ms = v * static_cast<double>(multiplier);
@@ -235,7 +238,7 @@ std::uint32_t parse_duration_ms(const std::string& text, Diagnostics& diag, int 
         }
         return static_cast<std::uint32_t>(ms + 0.5);
     } catch (const std::exception&) {
-        diag.error(line, "'" + text + "' is not a duration");
+        diag.error(line, "'" + text + "' is not a duration; write 500ms, 5s, 2m, 1h or a plain millisecond count");
         return 0;
     }
 }
@@ -374,6 +377,74 @@ Casebook parse(const std::string& text, Diagnostics& diag) {
             if (t.size() >= 3) { o.description = t[2].value; }
             if (t.size() > 3) { diag.error(line, "observe takes a name and one description"); }
             cb.observes.push_back(std::move(o));
+            continue;
+        }
+
+        // ── timed readings ──────────────────────────────────────────────────
+        //
+        //   reading <name> "<description>" when <source> within <T> after <earlier>
+        //   reading <name> "<description>" when <source> within last <T>
+        //   reading <name> "<description>" when <source> <N> times in <T>
+        //
+        // Parsed by hand, not through sections(): the clause is a sentence with a fixed shape, and an author who gets
+        // the shape wrong deserves to be shown all three.
+        if (head == "reading") {
+            const std::string shapes =
+                "write one of: `reading <name> \"<description>\" when <reading> within 10s after <reading>`, "
+                "`... when <reading> within last 5m`, or `... when <reading> 3 times in 1h`";
+            TimedReading r;
+            r.line = line;
+            if (t.size() < 2 || t[1].quoted) {
+                diag.error(line, "expected a name after 'reading'; " + shapes);
+                continue;
+            }
+            r.name = t[1].value;
+            std::size_t i = 2;
+            if (i < t.size() && t[i].quoted) { r.description = t[i++].value; }
+            if (i >= t.size() || t[i].quoted || t[i].value != "when") {
+                diag.error(line, "reading '" + r.name + "' needs a 'when' clause saying how time sets it; " + shapes);
+                continue;
+            }
+            ++i;
+            std::vector<std::string> w;
+            for (; i < t.size(); ++i) {
+                if (t[i].quoted) {
+                    diag.error(line, "unexpected text \"" + t[i].value + "\" in the 'when' clause of '" + r.name + "'");
+                    break;
+                }
+                w.push_back(t[i].value);
+            }
+            const auto is_count = [](const std::string& x) {
+                if (x.empty() || x.size() > 3) { return false; }
+                for (char c : x) {
+                    if (std::isdigit(static_cast<unsigned char>(c)) == 0) { return false; }
+                }
+                return true;
+            };
+            if (w.size() == 5 && w[1] == "within" && w[3] == "after") {
+                r.kind = TimedReading::Kind::After;
+                r.source = w[0];
+                r.window_ms = parse_duration_ms(w[2], diag, line);
+                r.after = w[4];
+            } else if (w.size() == 4 && w[1] == "within" && w[2] == "last") {
+                r.kind = TimedReading::Kind::Recent;
+                r.source = w[0];
+                r.window_ms = parse_duration_ms(w[3], diag, line);
+            } else if (w.size() == 5 && is_count(w[1]) && w[2] == "times" && w[3] == "in") {
+                r.kind = TimedReading::Kind::Count;
+                r.source = w[0];
+                r.times = std::stoi(w[1]);
+                r.window_ms = parse_duration_ms(w[4], diag, line);
+                if (r.times < 2 || r.times > 16) {
+                    diag.error(line, "reading '" + r.name + "' counts " + w[1] +
+                                         " times; a count must be from 2 to 16 (for once, use `within last`)");
+                }
+            } else {
+                diag.error(line, "cannot read the 'when' clause of reading '" + r.name + "'; " + shapes);
+                continue;
+            }
+            if (r.window_ms == 0) { diag.error(line, "reading '" + r.name + "' needs a time above zero"); }
+            cb.timed.push_back(std::move(r));
             continue;
         }
 
@@ -710,9 +781,10 @@ Casebook parse(const std::string& text, Diagnostics& diag) {
 
         diag.error(line, "unrecognised declaration '" + head + "'" +
                                  did_you_mean(head, {"casebook", "source", "note", "observe", "exclusive", "implies",
-                                                     "claim", "excuse", "doubt", "action", "prefer", "channel"}) +
-                                 " A line must begin with one of: casebook, source, note, observe, exclusive, implies, "
-                                 "claim, excuse, doubt, action, prefer, channel -- or be indented, to continue the "
+                                                     "claim", "excuse", "doubt", "action", "prefer", "channel",
+                                                     "reading"}) +
+                                 " A line must begin with one of: casebook, source, note, observe, reading, exclusive, "
+                                 "implies, claim, excuse, doubt, action, prefer, channel -- or be indented, to continue the "
                                  "declaration above it.");
     }
 

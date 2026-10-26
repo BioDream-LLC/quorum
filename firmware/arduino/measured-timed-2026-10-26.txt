@@ -1,0 +1,31 @@
+Timed readings on an Arduino Uno R4 Minima (RA4M1, 48 MHz), 2026-10-26.
+Runtime firmware and image from quorum-studio image casebook/fixtures/timed/timed.cb -board unor4, written with dfu-util.
+Then driven over Modbus RTU (COM3) by a throwaway Go check with the board's own millisecond clock; between
+requests the firmware calls QuorumMap::tick().
+
+--- start-up report
+casebook        timed-demo v1
+arguments       29, attacks 27, observations 9
+image           OK, fingerprint 0xb90f2dbe
+not Decided     0   construction faults 0
+steps           max 76, proven bound 130, WITHIN
+worst cycle     9076 cycles = 189.083 us (state 0x0, cold, instantiate+decide)
+DEVICE timed-demo states 512 asserts 416 fnv1a 0x3003af65
+GUARD timed-demo pairs 1536 accepted 652 replaced 884 weaker 0 fnv1a 0x96bec2dd
+(qblob sweep on the host prints the same DEVICE and GUARD lines.)
+
+--- timed check
+board fingerprint 0xb90f2dbe, 9 observations
+OK   run    nothing set (got run)
+OK   stop   pressure high 2 s after a start: dead-heading (got stop)
+OK   run    pressure normal again (got run)
+OK   alarm  pressure high 12 s after the start: blockage (got alarm)
+OK   run    writing the timed reading's bit does not set it (got run)
+OK   stop   bearing hot now (got stop)
+OK   alarm  cooled, 30 s later with no requests: still remembered (ran hot in the last 5 min) (got alarm)
+OK   stop   three overload trips within seconds, seen between requests: lockout (got stop)
+(the lockout clears an hour after the first trip; not waited for)
+elapsed 44s; 8 passed, 0 failed
+
+Not checked on the board: expiry of the 5-minute and 1-hour windows (checked on the host, binding_timers and
+runtime_modbus).

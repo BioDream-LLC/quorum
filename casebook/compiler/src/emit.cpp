@@ -56,6 +56,18 @@ std::uint32_t fingerprint(const Lowered& lo) {
         mix(t.off);
         mix(static_cast<std::int32_t>(t.hold_ms));
     }
+    // Timed readings, only when there are any, so every fingerprint from before they existed is unchanged.
+    if (!lo.timers.empty()) {
+        mix(static_cast<std::int32_t>(lo.timers.size()));
+        for (const LoweredTimer& t : lo.timers) {
+            mix(t.kind);
+            mix(t.observation);
+            mix(t.source);
+            mix(t.after);
+            mix(static_cast<std::int32_t>(t.window_ms));
+            mix(t.times);
+        }
+    }
     return h;
 }
 
@@ -112,6 +124,38 @@ std::string pad(const std::string& s, std::size_t width) {
 ///
 /// Emitted as `constexpr`, so on a microcontroller they live in flash and are never copied to RAM. Every constant
 /// here was written in the .cb file and converted to milli-units by the compiler; the device compares integers only.
+/// The timed readings: how the history of readings becomes the readings above. Only when the casebook has some.
+void emit_timers(std::ostream& o, const Lowered& lo) {
+    if (lo.timers.empty()) { return; }
+    static const char* const kinds[] = {"After", "Recent", "Count"};
+    o << "// ── timed readings ─────────────────────────────────────────────────────────\n"
+         "//\n"
+         "// Include <quorum/binding/binding.hpp> to use these. Call step() once per cycle with the presence mask\n"
+         "// WITHOUT the timer bits, and OR the result in. The framework never sees time: each of these is one\n"
+         "// presence bit, and exhaustive validation covered every combination of them.\n"
+         "constexpr std::int32_t kTimerCount = " << lo.timers.size() << ";\n\n"
+      << "constexpr binding::TimerSpec kTimers[] = {\n";
+    for (const LoweredTimer& t : lo.timers) {
+        const std::string& self = lo.arguments[static_cast<std::size_t>(t.observation)].name;
+        const std::string& src = lo.arguments[static_cast<std::size_t>(t.source)].name;
+        o << "    {binding::TimerKind::" << kinds[t.kind] << ", " << t.observation << ", " << t.source << ", " << t.after
+          << ", " << t.window_ms << "U, " << t.times << "},  // " << self << ": " << src;
+        if (t.kind == 0) {
+            o << " within " << t.window_ms << " ms after " << lo.arguments[static_cast<std::size_t>(t.after)].name;
+        } else if (t.kind == 1) {
+            o << " within last " << t.window_ms << " ms";
+        } else {
+            o << " " << t.times << " times in " << t.window_ms << " ms";
+        }
+        o << "\n";
+    }
+    o << "};\n\n"
+      << "using CaseTimers = binding::Timers<" << lo.timers.size() << ">;\n\n"
+      << "[[nodiscard]] inline binding::Status make_timers(CaseTimers& t) noexcept {\n"
+      << "    return t.configure(kTimers, kTimerCount, kObservationCount);\n"
+      << "}\n\n";
+}
+
 void emit_binding(std::ostream& o, const Lowered& lo) {
     if (lo.channels.empty()) {
         o << "// This casebook declares no channels, so the integrator supplies the presence mask directly.\n"
@@ -216,7 +260,7 @@ std::string emit_header(const Lowered& lo) {
     // A generated header must be self-contained. Emitting references to binding::ChannelSpec without the include
     // produced a header that compiled only when the translation unit happened to include the binding layer first --
     // which the host tests did and the firmware did not. Found by the first real cross-compile.
-    if (!lo.channels.empty()) { o << "#include \"quorum/binding/binding.hpp\"\n"; }
+    if (!lo.channels.empty() || !lo.timers.empty()) { o << "#include \"quorum/binding/binding.hpp\"\n"; }
     o << "\n"
       << "namespace quorum::casebook::gen::" << ns << " {\n\n";
 
@@ -469,6 +513,7 @@ std::string emit_header(const Lowered& lo) {
       << "constexpr std::int32_t kStepBound = " << (2 * lo.count() + 2 * lo.max_attacks) << ";\n\n";
 
     emit_binding(o, lo);
+    emit_timers(o, lo);
 
     // ── integrity: the link from the validated casebook to the running one ───
     //
@@ -547,6 +592,18 @@ std::string emit_header(const Lowered& lo) {
               << "        mix(t.on);\n"
               << "        mix(t.off);\n"
               << "        mix(static_cast<std::int32_t>(t.hold_ms));\n"
+              << "    }\n";
+        }
+        if (!lo.timers.empty()) {
+            o << "    mix(kTimerCount);\n"
+              << "    for (std::int32_t i = 0; i < kTimerCount; ++i) {\n"
+              << "        const binding::TimerSpec& t = kTimers[i];\n"
+              << "        mix(static_cast<std::int32_t>(t.kind));\n"
+              << "        mix(t.observation);\n"
+              << "        mix(t.source);\n"
+              << "        mix(t.after);\n"
+              << "        mix(static_cast<std::int32_t>(t.window_ms));\n"
+              << "        mix(t.times);\n"
               << "    }\n";
         }
         o << "    return h;\n"

@@ -229,6 +229,25 @@ struct Channel {
     int line = 0;
 };
 
+/// A `reading`: a yes/no reading the device works out from other readings over time.
+///
+///   reading <name> "<description>" when <source> within <T> after <earlier>   -- After
+///   reading <name> "<description>" when <source> within last <T>              -- Recent
+///   reading <name> "<description>" when <source> <N> times in <T>             -- Count
+///
+/// It becomes one more observation. The framework never sees time; the binding layer sets the bit (binding.hpp).
+struct TimedReading {
+    enum class Kind { After, Recent, Count };
+    std::string name;
+    std::string description;
+    Kind kind = Kind::Recent;
+    std::string source;
+    std::string after;  ///< After only
+    std::uint32_t window_ms = 0;
+    int times = 0;      ///< Count only
+    int line = 0;
+};
+
 struct Casebook {
     std::string name;
     int version = 0;
@@ -241,6 +260,7 @@ struct Casebook {
     std::vector<Action> actions;
     std::vector<Prefer> prefers;
     std::vector<Channel> channels;
+    std::vector<TimedReading> timed;
 };
 
 /// Expand every `vote k of ...` clause into the combinations it denotes.
@@ -320,6 +340,17 @@ struct LoweredThreshold {
     std::uint32_t hold_ms = 0;
 };
 
+/// A timed reading in the lowered form. `kind` uses binding::TimerKind's numbering: 0 After, 1 Recent, 2 Count.
+struct LoweredTimer {
+    std::int32_t kind = 1;
+    std::int32_t observation = -1;
+    std::int32_t source = -1;
+    std::int32_t after = -1;
+    std::uint32_t window_ms = 0;
+    std::int32_t times = 0;
+    int line = 0;
+};
+
 struct Lowered {
     std::string casebook;
     int version = 0;
@@ -355,6 +386,9 @@ struct Lowered {
     /// in which case the integrator supplies the presence mask by hand.
     std::vector<LoweredChannel> channels;
     std::vector<LoweredThreshold> thresholds;
+    /// Timed readings, in declaration order. Empty for most casebooks, and then nothing below changes: the image,
+    /// header, certificate and fingerprint are byte-identical to a compiler that has never heard of timers.
+    std::vector<LoweredTimer> timers;
 
     std::int32_t max_args = 0;     ///< the capacity the emitted header will request
     std::int32_t max_attacks = 0;

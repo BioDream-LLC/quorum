@@ -77,6 +77,11 @@ t = next((k for k, l in enumerate(lines) if l.startswith("t ")), None)
 if t is not None:  # a setpoint nudged: the kind of edit that looks like a typo and trips (or fails to trip) a plant
     forgeries.append(("setpoint changed", edit(t, lambda l: " ".join(l.split()[:4] + [str(int(l.split()[4]) + 16)]
                                                                          + l.split()[5:]))))
+m = next((i for i, l in enumerate(lines) if l.startswith("m ")), None)
+if m is not None:  # a timed reading's window lengthened: "within 10s" quietly becoming "within 11s"
+    forgeries.append(("timer window changed", edit(m, lambda l: " ".join(l.split()[:5] + [str(int(l.split()[5]) + 1000)]
+                                                                    + l.split()[6:]))))
+    forgeries.append(("timed readings removed", [l for l in lines if not (l.startswith("m ") or l.startswith("timers "))]))
 forgeries.append(("truncated", lines[: len(lines) // 2]))
 
 # Pinned to the device: the honest certificate against the right and a wrong device fingerprint.

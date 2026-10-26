@@ -82,7 +82,7 @@ int main(int argc, char** argv) {
         check((c & 0xFFU) == 0xC5U && (c >> 8U) == 0xCDU, "CRC-16/MODBUS matches the published example");
     }
     if (argc < 3) {
-        std::printf("usage: test_modbus <pump.qcb> <held.qcb>\n");
+        std::printf("usage: test_modbus <pump.qcb> <held.qcb> <timed.qcb>\n");
         return 2;
     }
 
@@ -220,6 +220,61 @@ int main(int argc, char** argv) {
     sample(1, 12000, 6500);  // vibration extreme, no hold
     check(action_name(6500) == "trip", "and extreme vibration at once: seizing, trip");
     check(action_name(13000) == "inspect", "no samples for 6.5 s: vibration is stale, so blind: inspect");
+
+    std::printf("timed readings through Modbus: written readings, the device's clock, and tick()\n");
+    static rt::Casebook timed;
+    check(load(argv[3], timed), "the timed image loads");
+    static rt::RtPolicy tp;
+    static rt::RtTimers timers;
+    check(rt::make_policy(tp, timed) == quorum::solver::Status::Ok, "timed policy");
+    check(rt::make_timers(timers, timed) == quorum::binding::Status::Ok, "timed readings configure");
+    static mb::QuorumMap tmap;
+    tmap.attach(timed, nullptr, fw, solver, tp, &timers);
+    mb::Slave ts(1);
+    // timed.cb: motor_started 0, pressure_high 1, overload_trip 2, bearing_hot 3, gauge_suspect 4, flushing 5;
+    // timed readings dead_head 6, repeated_trips 7, ran_hot 8.
+    const auto put_mask = [&](std::uint32_t m, std::uint32_t now) {
+        (void)transact(ts, tmap, write_n(8, {static_cast<std::uint16_t>(m >> 16), static_cast<std::uint16_t>(m)}), now);
+    };
+    const auto act = [&](std::uint32_t now) {
+        const std::vector<std::uint16_t> o = regs_of(transact(ts, tmap, read_req(16, 9), now));
+        return o.size() == 9 && o[2] < timed.action_count ? std::string(rt::name_of(timed, timed.actions[o[2]]))
+                                                         : std::string("?");
+    };
+    check(act(0) == "run", "nothing set: run");
+    put_mask(1U << 0, 100);
+    check(act(100) == "run", "a start: run");
+    put_mask((1U << 0) | (1U << 1), 5000);
+    check(act(5000) == "stop", "pressure high 4.9 s after the start: dead-heading, stop");
+    put_mask(1U << 0, 6000);
+    check(act(6000) == "run", "pressure back to normal: run");
+    put_mask((1U << 0) | (1U << 1), 30000);
+    check(act(30000) == "alarm", "pressure high 30 s after the start: a blockage, alarm");
+    put_mask(0, 31000);
+    check(act(31000) == "run", "all clear");
+    put_mask(1U << 6, 31500);
+    check(act(31500) == "run", "a master cannot set a timed reading by writing its bit");
+    check((tmap.presence() & (1U << 6)) == 0U, "and the bit stays clear in the presence the device decided on");
+
+    // The overheat must be remembered for 5 minutes even if the master stops asking; tick() keeps the clock moving.
+    put_mask(1U << 3, 40000);
+    check(act(40000) == "stop", "bearing hot now: stop");
+    put_mask(0, 41000);
+    for (std::uint32_t t = 41000; t < 340000; t += 1000) { tmap.tick(t); }
+    // Last SEEN hot at 40000: the device cannot know about the second before the master cleared the bit.
+    check(act(340000) == "alarm", "last seen hot exactly 5 minutes ago: still remembered, alarm");
+    check(act(340001) == "run", "and forgotten 1 ms later");
+
+    // Three overload trips, each seen only through tick(), within an hour: lockout.
+    std::uint32_t now = 400000;
+    for (int trip = 0; trip < 3; ++trip) {
+        put_mask(1U << 2, now += 60000);
+        tmap.tick(now);
+        put_mask(0, now += 1000);
+        tmap.tick(now);
+    }
+    check(act(now) == "stop", "three trips in an hour: lockout, stop");
+    check(act(now + 3600000U) == "run", "an hour after the first: run");
 
     std::printf("%d checks, %d failures\n", g_checks, g_failures);
     return g_failures == 0 ? 0 : 1;

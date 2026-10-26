@@ -18,7 +18,7 @@ endif()
 
 # Blob equivalence: for every reference casebook, cbc writes the header and the blob from the same source in one run,
 # and the test requires the two paths to decide every state identically.
-#   name | source (relative to casebook/) | generated namespace | declares channels
+#   name | source (relative to casebook/) | generated namespace | declares channels | declares timed readings
 set(QUORUM_BLOB_CASES
     "pump|pump/pump.cb|centrifugal_pump|0"
     "pump_severity|pump/pump_severity.cb|centrifugal_pump_severity|0"
@@ -30,6 +30,7 @@ set(QUORUM_BLOB_CASES
     "blind|fixtures/blind_channel/blind.cb|blind|1"
     "held|fixtures/held/held.cb|held_demo|1"
     "gearbox|example/gearbox.cb|gearbox_demo|1"
+    "timed|fixtures/timed/timed.cb|timed_demo|0|1"
 )
 set(CB_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../casebook)
 foreach(case ${QUORUM_BLOB_CASES})
@@ -38,6 +39,11 @@ foreach(case ${QUORUM_BLOB_CASES})
     list(GET f 1 src)
     list(GET f 2 ns)
     list(GET f 3 ch)
+    list(LENGTH f nf)
+    set(tm 0)
+    if(nf GREATER 4)
+        list(GET f 4 tm)
+    endif()
     set(out ${CMAKE_CURRENT_BINARY_DIR}/blob/${name})
     add_custom_command(
         OUTPUT ${out}/generated.hpp ${out}/casebook.qcb
@@ -49,7 +55,8 @@ foreach(case ${QUORUM_BLOB_CASES})
     target_link_libraries(test_blob_${name} PRIVATE quorum_runtime)
     target_include_directories(test_blob_${name} PRIVATE ${out} ${CMAKE_SOURCE_DIR}/binding/include)
     target_compile_definitions(test_blob_${name} PRIVATE
-        QUORUM_HEADER="generated.hpp" QUORUM_NS=quorum::casebook::gen::${ns} QUORUM_HAS_CHANNELS=${ch})
+        QUORUM_HEADER="generated.hpp" QUORUM_NS=quorum::casebook::gen::${ns} QUORUM_HAS_CHANNELS=${ch}
+        QUORUM_HAS_TIMERS=${tm})
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         target_compile_options(test_blob_${name} PRIVATE ${QUORUM_STRICT})
     endif()
@@ -73,9 +80,10 @@ target_include_directories(test_modbus PRIVATE ${CMAKE_SOURCE_DIR}/binding/inclu
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(test_modbus PRIVATE ${QUORUM_STRICT})
 endif()
-add_dependencies(test_modbus test_blob_pump test_blob_held)
+add_dependencies(test_modbus test_blob_pump test_blob_held test_blob_timed)
 add_test(NAME runtime_modbus COMMAND test_modbus ${CMAKE_CURRENT_BINARY_DIR}/blob/pump/casebook.qcb
-                                                ${CMAKE_CURRENT_BINARY_DIR}/blob/held/casebook.qcb)
+                                                ${CMAKE_CURRENT_BINARY_DIR}/blob/held/casebook.qcb
+                                                ${CMAKE_CURRENT_BINARY_DIR}/blob/timed/casebook.qcb)
 
 # qblob: the host companion. Uses the device loader itself.
 add_executable(qblob tools/qblob.cpp)

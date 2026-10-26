@@ -8,7 +8,7 @@ endif()
 
 find_package(Python3 COMPONENTS Interpreter)
 if(Python3_Interpreter_FOUND)
-    foreach(cb pump/pump.cb tank/tank.cb permit/permit.cb fixtures/consistency/flow_current.cb)
+    foreach(cb pump/pump.cb tank/tank.cb permit/permit.cb fixtures/consistency/flow_current.cb fixtures/timed/timed.cb)
         get_filename_component(stem ${cb} NAME_WE)
         add_test(NAME qcert_${stem}
             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tamper_test.py $<TARGET_FILE:cbc>

@@ -27,8 +27,13 @@ constexpr ThresholdSpec kThresholds[] = {
     {0, o_level_high, Sense::Above, 10000, 9500},
 };
 
+constexpr TimerSpec kTimers[] = {
+    {TimerKind::Recent, 3, o_level_high, -1, 60000U, 0},
+};
+
 // Static storage, so the device integrator can see there is no allocation anywhere in the path.
 Binding<1, 1> g_binding;
+Timers<1> g_timers;
 
 }  // namespace
 
@@ -64,5 +69,13 @@ unsigned long quorum_binding_mask(unsigned long now_ms) {
 int quorum_binding_health(int channel, unsigned long now_ms) {
     return static_cast<int>(g_binding.health(static_cast<std::int32_t>(channel),
                                              static_cast<std::uint32_t>(now_ms)));
+}
+
+/// Install the timed-reading table (4 observations: the three above and one timed reading). Returns 0 on success.
+int quorum_timers_configure(void) { return g_timers.configure(kTimers, 1, 4) == Status::Ok ? 0 : -1; }
+
+/// Advance the timed readings; returns the timer bits to OR into the mask.
+unsigned long quorum_timers_step(unsigned long base_mask, unsigned long now_ms) {
+    return g_timers.step(static_cast<std::uint32_t>(base_mask), static_cast<std::uint32_t>(now_ms));
 }
 }

@@ -79,7 +79,7 @@ class Node:
 
 def parse(text):
     obs, nodes, attacks, prefer = [], {}, [], []  # attacks: (from, kind, to)
-    channels = []
+    channels, timed = [], []
     for line in logical_lines(text):
         # descriptions may contain anything; remove them before splitting
         bare = re.sub(r'"(?:[^"\\]|\\.)*"', " ", line)
@@ -89,6 +89,11 @@ def parse(text):
             continue
         if head == "observe":
             obs.append(t[1])
+            continue
+        if head == "reading":
+            # A timed reading is one more presence bit; when the device sets it is not a question for the rules.
+            # cbc numbers these after the channel readings.
+            timed.append(t[1])
             continue
         if head == "channel":
             name = t[1]
@@ -158,6 +163,7 @@ def parse(text):
         raise ValueError("refcheck does not understand: " + line)
     for c, flat in channels:
         obs += [c + "_unavailable"] + ([c + "_flatline"] if flat else [])
+    obs += timed
     return obs, nodes, attacks, prefer, channels
 
 

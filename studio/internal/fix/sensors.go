@@ -71,6 +71,12 @@ func SensorChecks(src string) (Result, error) {
 				readings = append(readings, t[1])
 				declared[t[1]] = true
 			}
+		case "reading":
+			// A timed reading is worked out by the board from other readings; it has no instrument of its own to
+			// fail, so it gets no failed-sensor check. Its name is taken, though.
+			if len(t) > 1 {
+				declared[t[1]] = true
+			}
 		case "channel":
 			if len(t) > 1 {
 				declared[t[1]] = true

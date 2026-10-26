@@ -70,6 +70,7 @@ every claim with the test that establishes it and what that test does not cover.
 <li>The three ways an argument is attacked: its <b>premise</b>, its <b>conclusion</b>, or the <b>step</b> between them</li>
 <li><b>Severity</b> breaks ties between conflicting conclusions, the way a reliability engineer already ranks them</li>
 <li><b>Sensor channels</b> with ranges, staleness and flatline detection, and hold times ("hot for 5 seconds")</li>
+<li><b>Timed readings</b>: "pressure high within 10 s after a start", "hot at any time in the last 5 minutes", "tripped 3 times in an hour", still checked in every combination</li>
 <li>Every rulebook carries its source document, revision and author through to the chip</li>
 </ul>
 </td>
@@ -582,7 +583,7 @@ is not "richer semantics at runtime".
 | `solver/` | the engine. Fixed-capacity `Framework`, `Grounded` solver. No heap, no exceptions, no recursion. |
 | `arbiter/` | turns a labelling into a decision. Five outcomes, always yields an executable action. |
 | `witness/` | reconstructs a derivation on demand and renders it as prose. Flags assumed absences. |
-| `binding/` | physical signals to asserted propositions. Integer-only, hysteresis, staleness, flatline detection. |
+| `binding/` | physical signals to asserted propositions. Integer-only, hysteresis, staleness, flatline detection, timed readings. |
 | `casebook/compiler/` | `cbc`, the casebook compiler. Host tool. |
 | `casebook/fixtures/` | casebooks the compiler must refuse, for outcomes no correct casebook reaches. |
 | `casebook/pump/`, `casebook/tank/`, `casebook/permit/`, `casebook/vote/` | worked casebooks, in four different problem shapes. |
@@ -832,8 +833,13 @@ additionally gated with `-ffreestanding -fno-exceptions -fno-rtti -fno-threadsaf
   can see. The studio prints a commissioning sheet for that loop check, and can drive a board through the same sheet
   over Modbus (41 of 41 states on a Pico 2). But only a person working through it on the real machine checks the
   wiring, and no plant has done so yet.
-- **No temporal reasoning.** The framework is stateless per cycle; all history lives in the binding layer's latches
-  and flatline windows. A casebook cannot say "X happened before Y".
+- **Time is limited to three forms, and when they are set is tested, not proved.** A rulebook can say "X within T
+  after Y", "X within the last T" and "X N times in T", and hold a threshold "for T". The rules are still checked in
+  every combination of readings, but whether the device sets a timed reading at the right moment is shown by tests
+  against a second implementation, not by exhaustive validation. Timed readings cannot be nested or chained, a reading
+  set and cleared between two device steps (about 1 ms apart) is missed. On an Uno R4 with its own clock, 8 of 8
+  timed checks passed (`firmware/arduino/measured-timed-2026-10-26.txt`); the 5-minute and 1-hour expiries were checked
+  only on the host, and the Pico 2 has not run them.
 - **RPN does not translate.** Severity does, through ASPIC+ preference ordering (`severity 1..10` on a claim), but
   occurrence and detection are population statistics with no meaning for the single machine a device is attached to.
 - **`exclusive` groups are validated even where a declared binding makes them unreachable.** Conservative on purpose:

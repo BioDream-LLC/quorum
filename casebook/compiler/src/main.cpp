@@ -1178,6 +1178,25 @@ struct Options {
                       ch.unit + " in " + std::to_string(ch.flatline_after_ms / 60000U) + " min)";
             }
         }
+        for (const quorum::cbc::LoweredTimer& t : lo.timers) {
+            if (t.observation != b) { continue; }
+            const auto dur = [](std::uint32_t ms) {
+                if (ms % 3600000U == 0U) { return std::to_string(ms / 3600000U) + " h"; }
+                if (ms % 60000U == 0U) { return std::to_string(ms / 60000U) + " min"; }
+                if (ms % 1000U == 0U) { return std::to_string(ms / 1000U) + " s"; }
+                return std::to_string(ms) + " ms";
+            };
+            const std::string src = lo.arguments[static_cast<std::size_t>(t.source)].name;
+            // "timed:" is how the studio's bench test recognises a reading it cannot set by writing a bit.
+            if (t.kind == 0) {
+                how = "timed: " + src + " within " + dur(t.window_ms) + " after " +
+                      lo.arguments[static_cast<std::size_t>(t.after)].name;
+            } else if (t.kind == 1) {
+                how = "timed: " + src + " within the last " + dur(t.window_ms);
+            } else {
+                how = "timed: " + src + " " + std::to_string(t.times) + " times in " + dur(t.window_ms);
+            }
+        }
         const std::uint32_t bit = 1U << static_cast<std::uint32_t>(b);
         if (!decide(bit, action, outcome)) { return false; }
         // The smallest set of other readings with which this one changes the decision: setting it then shows, on the
@@ -1263,6 +1282,14 @@ struct Options {
     for (const quorum::cbc::LoweredThreshold& t : lo.thresholds) {
         out << "t " << t.channel << " " << t.observation << " " << (t.above ? 1 : 0) << " " << t.on << " " << t.off << " "
             << t.hold_ms << "\n";
+    }
+    // Timed readings, only when there are any, so a certificate without them is byte-identical to before.
+    if (!lo.timers.empty()) {
+        out << "timers " << lo.timers.size() << "\n";
+        for (const quorum::cbc::LoweredTimer& t : lo.timers) {
+            out << "m " << t.kind << " " << t.observation << " " << t.source << " " << t.after << " " << t.window_ms << " "
+                << t.times << "\n";
+        }
     }
 
     const auto n = static_cast<std::size_t>(lo.count());

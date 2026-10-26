@@ -138,3 +138,17 @@ func TestSheetHTMLEscapesAndListsEveryReading(t *testing.T) {
 		t.Error(h)
 	}
 }
+
+func TestBenchRefusesTimedReadingsBeforeOpeningAPort(t *testing.T) {
+	s, err := Parse(pumpSheet + "row\t3\tran_hot\ttimed: vib_high within the last 5 min\talarm\tDecided\talone\talarm\tcontinue\tran hot\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Timed() != 1 {
+		t.Fatalf("Timed() = %d, want 1", s.Timed())
+	}
+	_, err = Run(context.Background(), "/dev/quorum-no-such-port", s)
+	if err == nil || !strings.Contains(err.Error(), "timed readings") {
+		t.Fatalf("want a refusal naming timed readings, got %v", err)
+	}
+}

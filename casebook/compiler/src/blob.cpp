@@ -32,6 +32,13 @@
 //                    source author, then every argument name, then every argument description
 //   CRC-32 (IEEE) of every preceding byte
 //
+//   (FORMAT 4 only) timer count, then 6 words per timed reading (kind 0=after 1=recent 2=count, observation,
+//                    source, after or -1, window_ms, times or 0), between the thresholds and the strings
+//
+// FORMAT 4 is format 3 (thresholds always carry hold_ms) plus the timer table. cbc writes it only when the casebook
+// has a `reading` declaration, so every other image is unchanged, and firmware that predates timers refuses a timed
+// image with BadFormat rather than running its rules with the timed readings stuck at "absent".
+//
 // FORMAT 3 is format 1 with that sixth threshold word, and nothing else. cbc writes it only when some threshold has a
 // hold, so every casebook without one still produces byte-identical format-1 images -- every image measured on a board
 // so far stays valid, and older firmware refuses a held image (BadFormat) rather than silently dropping the hold.
@@ -66,6 +73,7 @@ namespace {
 constexpr std::uint32_t kBlobMagic = 0x31424351U;  // "QCB1" as bytes in memory
 constexpr std::uint32_t kBlobFormat = 1U;
 constexpr std::uint32_t kBlobFormatHeld = 3U;
+constexpr std::uint32_t kBlobFormatTimed = 4U;
 
 void put(std::string& o, std::uint32_t v) {
     for (int b = 0; b < 4; ++b) { o.push_back(static_cast<char>((v >> (8 * b)) & 0xFFU)); }
@@ -85,11 +93,12 @@ void put(std::string& o, std::size_t v) { put(o, static_cast<std::uint32_t>(v));
 }  // namespace
 
 std::string emit_blob(const Lowered& lo) {
-    bool held = false;
+    const bool timed = !lo.timers.empty();
+    bool held = timed;
     for (const LoweredThreshold& t : lo.thresholds) { held = held || t.hold_ms != 0U; }
     std::string o;
     put(o, kBlobMagic);
-    put(o, held ? kBlobFormatHeld : kBlobFormat);
+    put(o, timed ? kBlobFormatTimed : (held ? kBlobFormatHeld : kBlobFormat));
     put(o, std::uint32_t{0});  // total length, patched below
     put(o, fingerprint(lo));
 
@@ -144,6 +153,17 @@ std::string emit_blob(const Lowered& lo) {
         put(o, t.on);
         put(o, t.off);
         if (held) { put(o, t.hold_ms); }
+    }
+    if (timed) {
+        put(o, lo.timers.size());
+        for (const LoweredTimer& t : lo.timers) {
+            put(o, t.kind);
+            put(o, t.observation);
+            put(o, t.source);
+            put(o, t.after);
+            put(o, t.window_ms);
+            put(o, t.times);
+        }
     }
 
     std::string strings;

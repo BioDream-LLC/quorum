@@ -402,3 +402,51 @@ immediate release, a zero hold identical to none).
 The fingerprint covers the binding tables, holds included (since 2026-10-11; see proof certificates above), so a
 deliberately edited setpoint with a recomputed CRC is refused as a fingerprint mismatch, not loaded. `test_blob` edits
 the fallback and the first setpoint of every image that has one, repairs the CRC, and requires the refusal.
+
+
+## Timed readings — what happened before what
+
+```
+reading dead_head      "pressure went high within 10 s of a start" when pressure_high within 10s after motor_started
+reading ran_hot        "the bearing was hot in the last 5 minutes"   when bearing_hot within last 5m
+reading repeated_trips "the overload relay tripped 3 times in an hour" when overload_trip 3 times in 1h
+```
+
+A `reading` is a yes/no reading the device works out from other readings over time. Rules use it like any other
+reading: `claim closed_valve "..." needs dead_head`. There are three forms:
+
+| form | set when | clears when |
+|---|---|---|
+| `X within T after Y` | X becomes set no more than T after Y became set (Y may have cleared since) | X clears |
+| `X within last T` | X is set, and for T after X was last seen set | T has passed since X was last seen set |
+| `X N times in T` | X has become set at least N times (2 to 16) in the last T | the N-th most recent of those is older than T |
+
+Durations are written `500ms`, `5s`, `2m` or `1h`, up to 24 days. Every window is inclusive: pressure exactly 10 s after
+the start counts. A relay that stays tripped is one trip, not many.
+
+**As with the threshold hold, time lives in the binding layer and the framework never sees it.** Each timed reading is
+one presence bit, so exhaustive validation, `--symbolic` and `--certificate` still cover every combination of readings,
+the timed ones included. What they do not cover is WHEN the device sets the bit; `test_timers` checks that against a
+second implementation that keeps the whole history and applies the table above literally.
+
+Three rules keep this simple enough to check:
+
+- **A timed reading watches only base readings**: an `observe`, or a reading a channel sets. It cannot watch a
+  conclusion or another timed reading, so the order the device works them out in cannot change any answer.
+- **The device sees readings when it steps**, about every millisecond on both boards, and at every Modbus request. A
+  reading that is set and cleared between two steps is missed. At start-up, a reading already set counts as having
+  just become set: the device does not assume a quiet history it never saw.
+- **A doubt does not reach through a timed reading.** `doubt gauge_bad ... undermines pressure_high` discards
+  `pressure_high` but not `dead_head`, which the device works out from the raw bit. Name both if a suspect gauge should
+  discard both; cbc warns when a doubt names a source but not the timed reading built from it.
+
+Timed readings are set by the device and cannot be written over Modbus, like channel readings. On the commissioning
+sheet each is described as `timed: ...`, and the studio's bench test refuses a rulebook that has them, because setting
+the bit by hand would test nothing. At most 8 per rulebook (the board runtime's table), each counting against the 30
+readings.
+
+On the device a timed rulebook needs data-image FORMAT 4: format 3 plus the timer table. cbc writes it only when a
+`reading` exists, so every other rulebook still produces byte-identical images, headers, certificates and fingerprints
+(checked for all 67 repository rulebooks against the previous compiler, 2026-10-26), and firmware that predates timers
+refuses a timed image instead of running it with the timed readings stuck at absent. The fingerprint and the
+certificate cover the timer table. Fixture: `casebook/fixtures/timed/timed.cb`.

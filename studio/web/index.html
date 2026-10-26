@@ -307,10 +307,11 @@ const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&
 // Per-character classes, then runs of equal class become spans. Simple, and fast enough for casebooks of a few
 // thousand lines. Every character is escaped before it is wrapped, so file content can never become markup.
 const HEADS = { observe: "k-observe", claim: "k-claim", excuse: "k-excuse", doubt: "k-doubt", action: "k-action",
-  channel: "k-observe", threshold: "k-observe", exclusive: "k-doubt", vote: "k-claim", prefer: "k-excuse",
+  channel: "k-observe", threshold: "k-observe", reading: "k-observe", exclusive: "k-doubt", vote: "k-claim", prefer: "k-excuse",
   casebook: "k-meta", source: "k-meta", note: "k-meta" };
 const OPS = new Set(["needs", "when", "undercuts", "undermines", "rebuts", "safe", "idle", "severity", "over", "unit",
-  "range", "stale_after", "flatline_after", "above", "below", "release", "dated", "by", "of", "asserts"]);
+  "range", "stale_after", "flatline_after", "above", "below", "release", "dated", "by", "of", "asserts", "within",
+  "after", "last", "times", "in", "for"]);
 
 function classify(line) {
   const c = new Array(line.length).fill("");

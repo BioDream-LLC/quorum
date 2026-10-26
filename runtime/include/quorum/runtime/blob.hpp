@@ -40,10 +40,12 @@ constexpr std::int32_t kMaxGroupMembers = 64;  ///< across all groups
 constexpr std::int32_t kMaxChannels = 16;
 constexpr std::int32_t kMaxThresholds = 32;
 constexpr std::int32_t kMaxObservations = 32;  ///< one bit each in the presence mask
+constexpr std::int32_t kMaxTimers = 8;         ///< timed readings (`reading ... when ...`)
 
 constexpr std::uint32_t kBlobMagic = 0x31424351U;  // "QCB1"
 constexpr std::uint32_t kBlobFormat = 1U;
 constexpr std::uint32_t kBlobFormatHeld = 3U;  ///< format 1 plus a hold_ms word per threshold
+constexpr std::uint32_t kBlobFormatTimed = 4U; ///< format 3 plus the timed-reading table
 
 enum class BlobStatus : std::uint8_t {
     Ok = 0,
@@ -104,6 +106,8 @@ struct Casebook {
     binding::ChannelSpec channels[kMaxChannels]{};
     std::int32_t threshold_count = 0;
     binding::ThresholdSpec thresholds[kMaxThresholds]{};
+    std::int32_t timer_count = 0;
+    binding::TimerSpec timers[kMaxTimers]{};
 
     const char* name = "";
     const char* source_document = "";
@@ -117,6 +121,7 @@ using RtFramework = solver::Framework<kMaxArgs, kMaxAttacks>;
 using RtSolver = solver::Grounded<kMaxArgs>;
 using RtPolicy = arbiter::Policy<kMaxActions>;
 using RtBinding = binding::Binding<kMaxChannels, kMaxThresholds>;
+using RtTimers = binding::Timers<kMaxTimers>;
 
 namespace detail {
 
@@ -218,6 +223,18 @@ private:
         mix(t.off);
         mix(static_cast<std::int32_t>(t.hold_ms));
     }
+    if (cb.timer_count > 0) {
+        mix(cb.timer_count);
+        for (std::int32_t i = 0; i < cb.timer_count; ++i) {
+            const binding::TimerSpec& t = cb.timers[i];
+            mix(static_cast<std::int32_t>(t.kind));
+            mix(t.observation);
+            mix(t.source);
+            mix(t.after);
+            mix(static_cast<std::int32_t>(t.window_ms));
+            mix(t.times);
+        }
+    }
     return h;
 }
 
@@ -228,8 +245,9 @@ private:
     std::uint32_t magic = 0, format = 0, total = 0;
     if (!c.u32(magic) || !c.u32(format) || !c.u32(total) || !c.u32(out.fingerprint)) { return BlobStatus::TooShort; }
     if (magic != kBlobMagic) { return BlobStatus::BadMagic; }
-    if (format != kBlobFormat && format != kBlobFormatHeld) { return BlobStatus::BadFormat; }
-    const bool held = format == kBlobFormatHeld;
+    if (format != kBlobFormat && format != kBlobFormatHeld && format != kBlobFormatTimed) { return BlobStatus::BadFormat; }
+    const bool timed = format == kBlobFormatTimed;
+    const bool held = format == kBlobFormatHeld || timed;
     if (total < 20U || total > size || total % 4U != 0U) { return BlobStatus::TooShort; }
     {
         detail::Cursor tail(data + total - 4U, 4U);
@@ -307,6 +325,23 @@ private:
             return BlobStatus::Malformed;
         }
         t.sense = sense == 0U ? binding::Sense::Above : binding::Sense::Below;
+    }
+    out.timer_count = 0;
+    if (timed) {
+        if (!c.count(out.timer_count, kMaxTimers, big) || out.timer_count == 0) { return fail(); }
+        for (std::int32_t i = 0; i < out.timer_count; ++i) {
+            binding::TimerSpec& t = out.timers[i];
+            std::uint32_t kind = 0;
+            if (!c.u32(kind) || !c.i32(t.observation) || !c.i32(t.source) || !c.i32(t.after) || !c.u32(t.window_ms) ||
+                !c.i32(t.times) || kind > 2U) {
+                return BlobStatus::Malformed;
+            }
+            t.kind = static_cast<binding::TimerKind>(kind);
+        }
+        // The same rules the device will apply at configure time, checked now so a bad table is a load failure.
+        if (RtTimers::validate(out.timers, out.timer_count, out.observation_count) != binding::Status::Ok) {
+            return BlobStatus::Malformed;
+        }
     }
 
     // Strings: 4 provenance strings, then n names, then n descriptions, each NUL-terminated.
@@ -389,6 +424,11 @@ namespace detail {
         }
     }
     return fw.finalize();
+}
+
+/// As the header's make_timers(). Only meaningful when the casebook declares timed readings.
+[[nodiscard]] inline binding::Status make_timers(RtTimers& t, const Casebook& cb) noexcept {
+    return t.configure(cb.timers, cb.timer_count, cb.observation_count);
 }
 
 /// As the header's make_binding(). Only meaningful when the casebook declares channels.

@@ -23,11 +23,14 @@ constexpr std::uint16_t kNone = 0xFFFFU;
 
 class QuorumMap final : public Registers {
 public:
-    /// One casebook. `binding` must already be configured from it (make_binding), or the casebook has no channels.
-    void attach(const Casebook& cb, RtBinding* binding, RtFramework& fw, RtSolver& solver, const RtPolicy& policy) noexcept {
+    /// One casebook. `binding` must already be configured from it (make_binding), or the casebook has no channels;
+    /// likewise `timers` (make_timers), or it has no timed readings.
+    void attach(const Casebook& cb, RtBinding* binding, RtFramework& fw, RtSolver& solver, const RtPolicy& policy,
+                RtTimers* timers = nullptr) noexcept {
         cb_ = &cb;
         pal_ = nullptr;
         binding_ = cb.channel_count > 0 ? binding : nullptr;
+        timers_ = cb.timer_count > 0 ? timers : nullptr;
         fw_ = &fw;
         solver_ = &solver;
         policy_[0] = &policy;
@@ -37,6 +40,9 @@ public:
             channel_bits_ |= obs_mask(cb.channels[c].unavailable_obs) | obs_mask(cb.channels[c].flatline_obs);
         }
         for (std::int32_t t = 0; t < cb.threshold_count; ++t) { channel_bits_ |= obs_mask(cb.thresholds[t].observation); }
+        // Timed readings are set by the device, never written from outside, exactly like channel readings. A timed
+        // casebook whose timers did not configure keeps those bits clear rather than letting a master set them.
+        for (std::int32_t t = 0; t < cb.timer_count; ++t) { channel_bits_ |= obs_mask(cb.timers[t].observation); }
         reset_proposals();
     }
 
@@ -45,6 +51,7 @@ public:
         pal_ = &p;
         cb_ = nullptr;
         binding_ = nullptr;
+        timers_ = nullptr;
         fw_ = &fw;
         solver_ = &solver;
         members_ = p.member_count;
@@ -86,6 +93,10 @@ public:
         }
         return Exception::None;
     }
+
+    /// Step the timed readings without deciding. The firmware calls this every millisecond or so between requests,
+    /// so a timer sees a reading come and go even when no master is polling. Does nothing without timers.
+    void tick(std::uint32_t now_ms) noexcept { (void)base_and_timers(now_ms); }
 
     [[nodiscard]] std::uint32_t evaluations() const noexcept { return evaluations_; }
     [[nodiscard]] std::uint32_t presence() const noexcept { return presence_; }
@@ -137,8 +148,14 @@ private:
         return Exception::IllegalAddress;
     }
 
+    /// The presence mask: written readings, then channel readings, then timed readings worked out from both.
+    [[nodiscard]] std::uint32_t base_and_timers(std::uint32_t now_ms) noexcept {
+        const std::uint32_t base = (mask_ & ~channel_bits_) | (binding_ != nullptr ? binding_->mask(now_ms) : 0U);
+        return timers_ != nullptr ? base | timers_->step(base, now_ms) : base;
+    }
+
     void evaluate(std::uint32_t now_ms) noexcept {
-        presence_ = (mask_ & ~channel_bits_) | (binding_ != nullptr ? binding_->mask(now_ms) : 0U);
+        presence_ = base_and_timers(now_ms);
         const bool built = (cb_ != nullptr ? instantiate(*fw_, *cb_, presence_) : instantiate(*fw_, *pal_, presence_)) ==
                            solver::Status::Ok;
         ++evaluations_;
@@ -193,6 +210,7 @@ private:
     const Casebook* cb_ = nullptr;
     const Palette* pal_ = nullptr;
     RtBinding* binding_ = nullptr;
+    RtTimers* timers_ = nullptr;
     RtFramework* fw_ = nullptr;
     RtSolver* solver_ = nullptr;
     const RtPolicy* policy_[kMaxMembers]{};

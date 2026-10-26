@@ -17,8 +17,8 @@
  *      takes it; two or more is Conflicted; none In with an action unlabelled is Indeterminate; otherwise Unsatisfied.
  *      Anything but Decided takes the fallback.
  *   4. The fingerprint in the header is the FNV-1a fingerprint of the framework, the idle and fallback actions and
- *      the binding (every setpoint, hysteresis, hold and staleness limit), recomputed here, so the certificate is
- *      tied to the image a device reports at start-up. The binding numbers are hashed, not interpreted: whether a
+ *      the binding (every setpoint, hysteresis, hold and staleness limit, and any timed readings), recomputed here,
+ *      so the certificate is tied to the image a device reports at start-up. The binding numbers are hashed, not interpreted: whether a
  *      setpoint is right is for whoever approves the rulebook.
  *
  * In every state the closed-world argument attacks each observation whose bit is clear -- that is how a state is
@@ -58,8 +58,8 @@ int main(int argc, char **argv) {
     FILE *f;
     char word[64], name[256];
     unsigned fp_claimed;
-    int version, n, obs, cap_args, cap_attacks, cw, edges, nact, fallback, idle, nch, nth, nbind = 0, i, k;
-    int32_t bind[64 * 7 + 64 * 6];
+    int version, n, obs, cap_args, cap_attacks, cw, edges, nact, fallback, idle, nch, nth, nbind = 0, i, k, ntm = 0;
+    int32_t bind[64 * 7 + 64 * 6], tm[8 * 6];
     int *efrom, *eto, *act, *start, *list, *fill, *lab, *rnd;
     unsigned char *seen;
     unsigned long states, total, s;
@@ -112,6 +112,17 @@ int main(int argc, char **argv) {
             bind[nbind++] = (int32_t)(uint32_t)v;
         }
 
+    /* Timed readings, present only when the rulebook has some: kind, observation, source, after, window, times. */
+    if (fscanf(f, " timers %d", &ntm) == 1) {
+        if (ntm < 1 || ntm > 8) return fail("bad timers line", -1);
+        for (i = 0; i < ntm; ++i)
+            for (k = 0; k < 6; ++k) {
+                long v;
+                if (fscanf(f, k == 0 ? " m %ld" : " %ld", &v) != 1) return fail("bad timer line", -1);
+                tm[i * 6 + k] = (int32_t)(uint32_t)v;
+            }
+    }
+
     /* The fingerprint, recomputed from the framework exactly as the device header and image carry it. */
     fnv = 2166136261u;
     mix(n); mix(obs); mix(cap_args); mix(cap_attacks); mix(edges);
@@ -123,6 +134,10 @@ int main(int argc, char **argv) {
     for (i = 0; i < nch * 7; ++i) mix(bind[i]);
     mix(nth);
     for (i = nch * 7; i < nbind; ++i) mix(bind[i]);
+    if (ntm > 0) {
+        mix(ntm);
+        for (i = 0; i < ntm * 6; ++i) mix(tm[i]);
+    }
     if (fnv != fp_claimed) return fail("the fingerprint does not match the framework in this certificate", -1);
     if (argc == 3 && strtoul(argv[2], NULL, 0) != fnv)
         return fail("this certificate is for a different rulebook than the one the device reported", -1);
