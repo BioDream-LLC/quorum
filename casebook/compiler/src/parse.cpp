@@ -385,13 +385,16 @@ Casebook parse(const std::string& text, Diagnostics& diag) {
         //   reading <name> "<description>" when <source> within <T> after <earlier>
         //   reading <name> "<description>" when <source> within last <T>
         //   reading <name> "<description>" when <source> <N> times in <T>
+        //   reading <name> "<description>" when <source> within first <T>
+        //   reading <name> "<description>" when <source> for <T>
         //
         // Parsed by hand, not through sections(): the clause is a sentence with a fixed shape, and an author who gets
-        // the shape wrong deserves to be shown all three.
+        // the shape wrong deserves to be shown all of them.
         if (head == "reading") {
             const std::string shapes =
                 "write one of: `reading <name> \"<description>\" when <reading> within 10s after <reading>`, "
-                "`... when <reading> within last 5m`, or `... when <reading> 3 times in 1h`";
+                "`... when <reading> within last 5m`, `... when <reading> 3 times in 1h`, "
+                "`... when <reading> within first 30s`, or `... when <reading> for 2s`";
             TimedReading r;
             r.line = line;
             if (t.size() < 2 || t[1].quoted) {
@@ -426,6 +429,14 @@ Casebook parse(const std::string& text, Diagnostics& diag) {
                 r.source = w[0];
                 r.window_ms = parse_duration_ms(w[2], diag, line);
                 r.after = w[4];
+            } else if (w.size() == 4 && w[1] == "within" && w[2] == "first") {
+                r.kind = TimedReading::Kind::First;
+                r.source = w[0];
+                r.window_ms = parse_duration_ms(w[3], diag, line);
+            } else if (w.size() == 3 && w[1] == "for") {
+                r.kind = TimedReading::Kind::Held;
+                r.source = w[0];
+                r.window_ms = parse_duration_ms(w[2], diag, line);
             } else if (w.size() == 4 && w[1] == "within" && w[2] == "last") {
                 r.kind = TimedReading::Kind::Recent;
                 r.source = w[0];

@@ -312,7 +312,7 @@ const HEADS = { observe: "k-observe", claim: "k-claim", excuse: "k-excuse", doub
   casebook: "k-meta", source: "k-meta", note: "k-meta" };
 const OPS = new Set(["needs", "when", "undercuts", "undermines", "rebuts", "safe", "idle", "severity", "over", "unit",
   "range", "stale_after", "flatline_after", "above", "below", "release", "dated", "by", "of", "asserts", "within",
-  "after", "last", "times", "in", "for"]);
+  "after", "last", "first", "times", "in", "for"]);
 
 function classify(line) {
   const c = new Array(line.length).fill("");

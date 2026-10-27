@@ -72,7 +72,7 @@ every claim with the test that establishes it and what that test does not cover.
 <li>The three ways an argument is attacked: its <b>premise</b>, its <b>conclusion</b>, or the <b>step</b> between them</li>
 <li><b>Severity</b> breaks ties between conflicting conclusions, the way a reliability engineer already ranks them</li>
 <li><b>Sensor channels</b> with ranges, staleness and flatline detection, and hold times ("hot for 5 seconds")</li>
-<li><b>Timed readings</b>: "pressure high within 10 s after a start", "hot at any time in the last 5 minutes", "tripped 3 times in an hour", still checked in every combination</li>
+<li><b>Timed readings</b>: "pressure high within 10 s after a start", "hot at any time in the last 5 minutes", "tripped 3 times in an hour", "the first 30 s of a start", "open for 2 s", still checked in every combination</li>
 <li>Every rulebook carries its source document, revision and author through to the chip</li>
 </ul>
 </td>
@@ -835,8 +835,8 @@ additionally gated with `-ffreestanding -fno-exceptions -fno-rtti -fno-threadsaf
   can see. The studio prints a commissioning sheet for that loop check, and can drive a board through the same sheet
   over Modbus (41 of 41 states on a Pico 2). But only a person working through it on the real machine checks the
   wiring, and no plant has done so yet.
-- **Time is limited to three forms, and when they are set is tested, not proved.** A rulebook can say "X within T
-  after Y", "X within the last T" and "X N times in T", chain them, and hold a threshold "for T". The rules are still
+- **Time is limited to five forms, and when they are set is tested, not proved.** A rulebook can say "X within T
+  after Y", "X within the last T", "X N times in T", "X within the first T" and "X for T", and chain them. The rules are still
   checked in every combination of readings, but whether the device sets a timed reading at the right moment is shown
   by tests against a second implementation, not by exhaustive validation. A timed reading cannot watch a conclusion,
   and the device sees only what the controller writes, so a pulse on the plant shorter than the controller's scan

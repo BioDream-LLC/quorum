@@ -74,7 +74,8 @@ that is the loop check, and the studio prints the sheet for it.
   been written to already, `-real-time` (or the box next to the button) plays the script by waiting instead.
   Measured on a Pico 2 with the pump image: 41 of 41 states as the sheet says. With the timed fixtures on its test
   clock: 19 of 19 and 17 of 17, and 19 of 19 for `timed.cb` in real time (71 minutes;
-  `firmware/pico2/measured-bench-timed-2026-10-26.txt`). The Uno R4 has not run the timed bench test.
+  `firmware/pico2/measured-bench-timed-2026-10-26.txt`); `startup.cb`, with a start-up bypass and on-delays, 17 of 17
+  on the test clock and in real time (`firmware/pico2/measured-bench-startup-2026-10-27.txt`). The Uno R4 has not run the timed bench test.
 - The bench test checks the board, not the plant. Only the sheet, worked through on the real machine, checks the
   wiring.
 

@@ -1,0 +1,28 @@
+casebook startup-demo v1
+source "quorum fixture: start-up bypass and on-delays" dated 2026-10-27 by "quorum project"
+note "Suction pressure dips while a pump starts, so low suction in the first 30 s of a start is expected and must not"
+note "raise a cavitation alarm. A guard door switch must read open for 2 s before it stops the machine, so a bounce"
+note "does not. Flow that stays low for 10 s is a fault. A guard opened in the last minute is still worth an alarm."
+
+observe motor_started "the motor start command is on"
+observe suction_low   "suction pressure below the limit"
+observe door_open     "the guard door switch reads open"
+observe flow_low      "discharge flow below the limit"
+
+reading starting      "the first 30 s after a start" when motor_started within first 30s
+reading door_off      "the guard door switch has read open for 2 s" when door_open for 2s
+reading no_flow       "flow has stayed low for 10 s" when flow_low for 10s
+reading door_recently "the guard was open at some point in the last minute" when door_off within last 1m
+
+claim cavitation   "low suction while running" severity 6 needs suction_low
+claim flow_fault   "no flow" severity 5 needs no_flow
+claim guard_open   "the guard is open" severity 9 needs door_off
+claim guard_was    "the guard was open recently" severity 2 needs door_recently
+
+excuse start_transient "suction dips while the pump starts" needs starting
+start_transient undercuts cavitation
+
+action run idle
+action alarm when any cavitation flow_fault guard_was
+action stop safe when any guard_open
+prefer stop over alarm over run

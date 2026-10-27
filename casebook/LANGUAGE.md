@@ -410,16 +410,25 @@ the fallback and the first setpoint of every image that has one, repairs the CRC
 reading dead_head      "pressure went high within 10 s of a start" when pressure_high within 10s after motor_started
 reading ran_hot        "the bearing was hot in the last 5 minutes"   when bearing_hot within last 5m
 reading repeated_trips "the overload relay tripped 3 times in an hour" when overload_trip 3 times in 1h
+reading starting       "the first 30 s after a start"                 when motor_started within first 30s
+reading door_off       "the guard switch has read open for 2 s"       when door_open for 2s
 ```
 
 A `reading` is a yes/no reading the device works out from other readings over time. Rules use it like any other
-reading: `claim closed_valve "..." needs dead_head`. There are three forms:
+reading: `claim closed_valve "..." needs dead_head`. There are five forms:
 
 | form | set when | clears when |
 |---|---|---|
 | `X within T after Y` | X becomes set no more than T after Y became set (Y may have cleared since) | X clears |
 | `X within last T` | X is set, and for T after X was last seen set | T has passed since X was last seen set |
 | `X N times in T` | X has become set at least N times (2 to 16) in the last T | the N-th most recent of those is older than T |
+| `X within first T` | X is set, and became set no more than T ago | X clears, or T has passed since it became set |
+| `X for T` | X is set, and became set at least T ago | X clears |
+
+`within first` is the start-up bypass: `excuse start_transient "..." needs starting` with `start_transient undercuts
+cavitation` keeps low suction from raising an alarm for the first 30 s of each start, and no longer. `for` is an
+on-delay for any reading, not only a channel threshold: a switch must read open for 2 s before it counts, so a bounce
+does not. A source that clears and sets again starts both over.
 
 Durations are written `500ms`, `5s`, `2m` or `1h`, up to 24 days. Every window is inclusive: pressure exactly 10 s after
 the start counts. A relay that stays tripped is one trip, not many.

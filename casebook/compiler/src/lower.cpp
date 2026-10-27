@@ -524,7 +524,13 @@ Lowered lower(const Casebook& cb, Diagnostics& diag) {
         for (const TimedReading& r : cb.timed) {
             LoweredTimer lt;
             lt.line = r.line;
-            lt.kind = r.kind == TimedReading::Kind::After ? 0 : (r.kind == TimedReading::Kind::Recent ? 1 : 2);
+            switch (r.kind) {
+                case TimedReading::Kind::After: lt.kind = 0; break;
+                case TimedReading::Kind::Recent: lt.kind = 1; break;
+                case TimedReading::Kind::Count: lt.kind = 2; break;
+                case TimedReading::Kind::First: lt.kind = 3; break;
+                case TimedReading::Kind::Held: lt.kind = 4; break;
+            }
             lt.observation = idx.count(r.name) != 0 ? idx[r.name] : -1;
             lt.source = base_reading(r.source, r, "");
             if (r.kind == TimedReading::Kind::After) {

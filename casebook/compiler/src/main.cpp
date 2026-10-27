@@ -1164,6 +1164,12 @@ struct SheetRow {
             }
             return false;
         }
+        if (t.kind == 3 || t.kind == 4) {  // within first / for: the source's current run, from its start
+            if (!has(h[k].full, t.source)) { return false; }
+            std::size_t j = k;
+            while (j > 0 && has(h[j - 1].full, t.source)) { --j; }
+            return t.kind == 3 ? h[k].at - h[j].at <= t.window_ms : h[k].at - h[j].at >= t.window_ms;
+        }
         int n = 0;
         for (std::size_t i = k + 1; i-- > 0;) {
             if (h[k].at - h[i].at > t.window_ms) { break; }
@@ -1177,14 +1183,27 @@ struct SheetRow {
             if (defined(t)) { h.back().full |= bit(t.observation); }
         }
     };
-    // The next moment a timed reading that is set now expires with the readings unchanged, as on the board.
+    // The next moment a timed reading changes with the readings unchanged, as on the board: one that is set expires,
+    // or a "for" reading whose source is set comes on.
     auto next_expiry = [&](std::uint64_t& at) {
         bool any = false;
         const std::size_t k = h.size() - 1;
         for (const Timer& t : lo.timers) {
+            if (t.kind == 4) {
+                if (has(h[k].full, t.observation) || !has(h[k].full, t.source)) { continue; }
+                std::size_t j = k;
+                while (j > 0 && has(h[j - 1].full, t.source)) { --j; }
+                const std::uint64_t e = h[j].at + t.window_ms;
+                if (e > now && (!any || e < at)) { at = e; any = true; }
+                continue;
+            }
             if (!has(h[k].full, t.observation) || t.kind == 0) { continue; }
             std::uint64_t from = 0;
-            if (t.kind == 1) {
+            if (t.kind == 3) {
+                std::size_t j = k;
+                while (j > 0 && has(h[j - 1].full, t.source)) { --j; }
+                from = h[j].at;
+            } else if (t.kind == 1) {
                 for (std::size_t i = k + 1; i-- > 0;) {
                     if (has(h[i].full, t.source)) { from = h[i].at; break; }
                 }
@@ -1235,16 +1254,20 @@ struct SheetRow {
         }
         return nullptr;
     };
-    // hold: how long the reading stays set after it rises; lead: how long before its rise its drive starts.
-    std::function<std::uint64_t(std::int32_t)> hold;
+    // rise(o, at, e, len) makes reading o rise at `at` and, where it can, stay set for at least `len`. hold(o, len)
+    // is how long it then stays set; lead(o) how long before its rise its drive must start.
+    std::function<std::uint64_t(std::int32_t, std::uint64_t)> holdl;
     std::function<std::uint64_t(std::int32_t)> lead;
     std::function<std::uint64_t(const Timer&)> gap;
+    const auto hold = [&](std::int32_t o) { return holdl(o, kPulse); };
     gap = [&](const Timer& t) { return hold(t.source) + kPulse; };  // between the rises a Count needs
-    hold = [&](std::int32_t o) -> std::uint64_t {
+    holdl = [&](std::int32_t o, std::uint64_t len) -> std::uint64_t {
         const Timer* t = timer_of(o);
-        if (t == nullptr) { return kPulse; }
-        if (t->kind == 0) { return hold(t->source); }
-        if (t->kind == 1) { return hold(t->source) + t->window_ms; }
+        if (t == nullptr) { return std::max(kPulse, len); }
+        if (t->kind == 0) { return holdl(t->source, len); }
+        if (t->kind == 1) { return holdl(t->source, len) + t->window_ms; }
+        if (t->kind == 3) { return std::min<std::uint64_t>(holdl(t->source, len), t->window_ms); }
+        if (t->kind == 4) { return holdl(t->source, len + t->window_ms) - t->window_ms; }
         const std::uint64_t spread = static_cast<std::uint64_t>(t->times - 1) * gap(*t);
         return t->window_ms > spread ? t->window_ms - spread : 1U;
     };
@@ -1252,27 +1275,31 @@ struct SheetRow {
         const Timer* t = timer_of(o);
         if (t == nullptr) { return 0U; }
         if (t->kind == 0) { return std::max(lead(t->source), lead(t->after)); }
-        if (t->kind == 1) { return lead(t->source); }
+        if (t->kind == 1 || t->kind == 3) { return lead(t->source); }
+        if (t->kind == 4) { return lead(t->source) + t->window_ms; }
         return static_cast<std::uint64_t>(t->times - 1) * gap(*t) + lead(t->source);
     };
-    std::function<void(std::int32_t, std::uint64_t, std::vector<Edge>&)> rise;
-    rise = [&](std::int32_t o, std::uint64_t at, std::vector<Edge>& e) {
+    std::function<void(std::int32_t, std::uint64_t, std::vector<Edge>&, std::uint64_t)> risel;
+    risel = [&](std::int32_t o, std::uint64_t at, std::vector<Edge>& e, std::uint64_t len) {
         const Timer* t = timer_of(o);
         if (t == nullptr) {
             e.push_back({at, o, true});
-            e.push_back({at + kPulse, o, false});
+            e.push_back({at + std::max(kPulse, len), o, false});
         } else if (t->kind == 0) {
-            rise(t->after, at, e);  // together counts as "after"
-            rise(t->source, at, e);
-        } else if (t->kind == 1) {
-            rise(t->source, at, e);
+            risel(t->after, at, e, kPulse);  // together counts as "after"
+            risel(t->source, at, e, len);
+        } else if (t->kind == 1 || t->kind == 3) {
+            risel(t->source, at, e, len);
+        } else if (t->kind == 4) {
+            risel(t->source, at - t->window_ms, e, len + t->window_ms);  // held from T before, for T and then len
         } else {
             const std::uint64_t g = gap(*t);
             for (std::int32_t k = 0; k < t->times; ++k) {
-                rise(t->source, at - static_cast<std::uint64_t>(t->times - 1 - k) * g, e);
+                risel(t->source, at - static_cast<std::uint64_t>(t->times - 1 - k) * g, e, k + 1 == t->times ? len : kPulse);
             }
         }
     };
+    const auto rise = [&](std::int32_t o, std::uint64_t at, std::vector<Edge>& e) { risel(o, at, e, kPulse); };
 
     // ── writing scenes ──
     auto margin = [](std::uint32_t w) {
@@ -1311,6 +1338,7 @@ struct SheetRow {
         std::uint64_t last = 0;
         bool any = false;
         for (std::size_t i = h.size(); i-- > 0;) {
+            if (t.kind == 3 || t.kind == 4) { break; }  // these remember only the current run, nothing once it ends
             const bool event = t.kind == 0 ? rose(i, t.after) : (t.kind == 1 ? has(h[i].full, t.source) : rose(i, t.source));
             if (event) { last = h[i].at; any = true; break; }
         }
@@ -1448,6 +1476,34 @@ struct SheetRow {
                 }
                 finish(name(t.observation));
             }
+        } else if (t.kind == 3 || t.kind == 4) {
+            // The source held well past the window: inside it, then outside it.
+            scene(inputs(t.observation) | ctx);
+            const std::uint64_t t0 = lead(t.source);
+            std::vector<Edge> e;
+            risel(t.source, t0, e, static_cast<std::uint64_t>(w) + 2U * m);
+            play(e, ctx);
+            const bool first = t.kind == 3;
+            if (!expect(t0 + w - m, tn + name(t.source) + " set " + dur(w - m) + " ago, still set" + in_ctx,
+                        t.observation, first) ||
+                !expect(t0 + w + m, tn + name(t.source) + " set " + dur(w + m) + " ago, still set" + in_ctx,
+                        t.observation, !first)) {
+                return false;
+            }
+            finish(name(t.observation));
+            if (!first) {
+                // Held: a source that drops just before the time is up never counts.
+                scene(inputs(t.observation) | ctx);
+                const std::uint64_t t1 = lead(t.source);
+                std::vector<Edge> e2;
+                risel(t.source, t1, e2, w - m);
+                play(e2, ctx);
+                if (!expect(t1 + w, tn + name(t.source) + " set for " + dur(w - m) + ", then cleared" + in_ctx,
+                            t.observation, false)) {
+                    return false;
+                }
+                finish(name(t.observation));
+            }
         } else if (t.kind == 1) {
             scene(inputs(t.observation) | ctx);
             const std::uint64_t t0 = lead(t.source);
@@ -1580,7 +1636,8 @@ struct SheetRow {
     auto immediate = [&](std::uint32_t m) {
         std::uint32_t r = m;
         for (const quorum::cbc::LoweredTimer& t : lo.timers) {
-            const bool on = (t.kind == 1 && has(r, t.source)) || (t.kind == 0 && has(r, t.source) && has(r, t.after));
+            const bool on = ((t.kind == 1 || t.kind == 3) && has(r, t.source)) ||
+                            (t.kind == 0 && has(r, t.source) && has(r, t.after));
             if (on) { r |= 1U << static_cast<std::uint32_t>(t.observation); }
         }
         return r & timed_bits;
@@ -1635,6 +1692,10 @@ struct SheetRow {
                       lo.arguments[static_cast<std::size_t>(t.after)].name;
             } else if (t.kind == 1) {
                 how = "timed: " + src + " within the last " + dur(t.window_ms);
+            } else if (t.kind == 3) {
+                how = "timed: the first " + dur(t.window_ms) + " after " + src + " became set";
+            } else if (t.kind == 4) {
+                how = "timed: " + src + " held for " + dur(t.window_ms);
             } else {
                 how = "timed: " + src + " " + std::to_string(t.times) + " times in " + dur(t.window_ms);
             }

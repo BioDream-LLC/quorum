@@ -237,7 +237,7 @@ struct Channel {
 ///
 /// It becomes one more observation. The framework never sees time; the binding layer sets the bit (binding.hpp).
 struct TimedReading {
-    enum class Kind { After, Recent, Count };
+    enum class Kind { After, Recent, Count, First, Held };
     std::string name;
     std::string description;
     Kind kind = Kind::Recent;

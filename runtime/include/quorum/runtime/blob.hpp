@@ -333,7 +333,7 @@ private:
             binding::TimerSpec& t = out.timers[i];
             std::uint32_t kind = 0;
             if (!c.u32(kind) || !c.i32(t.observation) || !c.i32(t.source) || !c.i32(t.after) || !c.u32(t.window_ms) ||
-                !c.i32(t.times) || kind > 2U) {
+                !c.i32(t.times) || kind > 4U) {
                 return BlobStatus::Malformed;
             }
             t.kind = static_cast<binding::TimerKind>(kind);

@@ -393,6 +393,8 @@ enum class TimerKind : std::uint8_t {
     After = 0,   ///< set when `source` becomes set within `window_ms` after `after` became set; clears with `source`
     Recent = 1,  ///< set while `source` is set and for `window_ms` after it was last seen set
     Count = 2,   ///< set while `source` has become set at least `times` times within the last `window_ms`
+    First = 3,   ///< set while `source` is set and became set no more than `window_ms` ago: a start-up window
+    Held = 4,    ///< set while `source` is set and became set at least `window_ms` ago: an on-delay
 };
 
 /// The most edges a Count timer remembers, and so the largest `times` it accepts.
@@ -468,6 +470,8 @@ public:
                     }
                     break;
                 case TimerKind::Recent:
+                case TimerKind::First:
+                case TimerKind::Held:
                     if (s.after != -1 || s.times != 0) { return Status::BadSpec; }
                     break;
                 case TimerKind::Count:
@@ -489,7 +493,8 @@ public:
     }
 
     /// How many ms after `now_ms` the next timer output can change by time alone, with the readings unchanged: the
-    /// earliest moment a "within last" or "times in" reading that is set now expires. False if none can. A device
+    /// earliest moment a "within last", "times in" or "within first" reading that is set now expires, or a "for"
+    /// reading whose source is set comes on. False if none can. A device
     /// that steps every millisecond never needs this; a clock that jumps (the test clock) steps at each such moment
     /// on its way, so a timer that watches another sees it expire when it really does.
     [[nodiscard]] bool next_change(std::uint32_t now_ms, std::uint32_t& in_ms) const noexcept {
@@ -498,6 +503,15 @@ public:
         for (std::int32_t t = 0; t < count_; ++t) {
             const std::size_t i = ix(t);
             const TimerSpec& s = specs_[i];
+            if (s.kind == TimerKind::Held) {
+                // A Held output changes by time alone when it turns ON: the run reaches window_ms.
+                if (out_[i] || !seen_[i]) { continue; }
+                const std::uint32_t age = now_ms - last_ms_[i];
+                const std::uint32_t d = age < s.window_ms ? s.window_ms - age : 1U;
+                if (!any || d < in_ms) { in_ms = d; }
+                any = true;
+                continue;
+            }
             if (!out_[i] || s.kind == TimerKind::After) { continue; }  // an After clears only when its source does
             std::uint32_t at = last_ms_[i];
             if (s.kind == TimerKind::Count) {
@@ -556,6 +570,23 @@ public:
                     out_[i] = seen_[i] && within(last_ms_[i]);
                     if (!out_[i]) { seen_[i] = false; }  // forgotten once expired, for the same reason
                     break;
+                case TimerKind::First:
+                case TimerKind::Held:
+                    // last_ms_ is when the source's current run began; seen_ whether it is in a run at all.
+                    if (rose) { last_ms_[i] = now_ms; }
+                    seen_[i] = src;
+                    if (!src) {
+                        out_[i] = false;
+                    } else if (s.kind == TimerKind::First) {
+                        // Once the window has passed it stays clear for the rest of the run, so a run longer than the
+                        // clock can count (49.7 days) cannot bring it back.
+                        out_[i] = (rose || out_[i]) && within(last_ms_[i]);
+                    } else {
+                        // Once held long enough it stays set for the rest of the run, so a run longer than the clock
+                        // can count (49.7 days) cannot make it drop.
+                        out_[i] = out_[i] || static_cast<std::uint32_t>(now_ms - last_ms_[i]) >= s.window_ms;
+                    }
+                    break;
                 case TimerKind::Count: {
                     if (rose) {
                         ring_[i][ix(head_[i])] = now_ms;
@@ -589,7 +620,8 @@ private:
     std::uint32_t outputs_ = 0;
     bool prev_source_[kSlots]{};
     bool prev_after_[kSlots]{};
-    bool seen_[kSlots]{};            ///< After: `after` has become set at least once; Recent: `source` has been set
+    bool seen_[kSlots]{};            ///< After: `after` has become set at least once; Recent: `source` has been set;
+                                     ///< First and Held: `source` is set now
     std::uint32_t last_ms_[kSlots]{};
     bool out_[kSlots]{};
     std::uint32_t ring_[kSlots][kRing]{};  ///< Count: when the source last became set, newest at head_ - 1

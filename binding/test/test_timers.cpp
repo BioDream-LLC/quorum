@@ -145,6 +145,44 @@ void test_wraparound() {
     check((u.step(0, now + 400000U) & bit(kRanHot)) == 0, "and expires on time after it");
 }
 
+void test_first_and_held() {
+    std::printf("within first, and for\n");
+    // A start-up bypass: kRanHot reused as "the first 30 s of a start"; kRepeated as "start held for 2 s".
+    const TimerSpec specs[] = {{TimerKind::First, kRanHot, kStart, -1, 30000U, 0},
+                               {TimerKind::Held, kRepeated, kStart, -1, 2000U, 0}};
+    Timers<2> t;
+    check(t.configure(specs, 2, kObservations) == Status::Ok, "the table configures");
+    std::uint32_t now = 1000;
+    check((t.step(0, now) & (bit(kRanHot) | bit(kRepeated))) == 0, "nothing set: neither");
+    std::uint32_t m = t.step(bit(kStart), now += 10);
+    check((m & bit(kRanHot)) != 0 && (m & bit(kRepeated)) == 0, "a start: in the first 30 s, not yet held 2 s");
+    check((t.step(bit(kStart), now += 1999) & bit(kRepeated)) == 0, "1.999 s: not yet held");
+    check((t.step(bit(kStart), now += 1) & bit(kRepeated)) != 0, "exactly 2 s: held");
+    check((t.step(bit(kStart), now += 28000) & bit(kRanHot)) != 0, "exactly 30 s: still in the first 30 s");
+    check((t.step(bit(kStart), now += 1) & bit(kRanHot)) == 0, "30.001 s: the window has passed");
+    check((t.step(bit(kStart), now += 3600000) & (bit(kRanHot) | bit(kRepeated))) == bit(kRepeated),
+          "an hour on: held, and not in the window");
+    m = t.step(0, now += 10);
+    check((m & (bit(kRanHot) | bit(kRepeated))) == 0, "stopped: neither");
+    check((t.step(bit(kStart), now += 10) & bit(kRanHot)) != 0, "a new start opens a new window");
+    check((t.step(0, now += 1500) & bit(kRepeated)) == 0, "a start held 1.5 s then dropped: never held");
+    check((t.step(bit(kStart), now += 10) & bit(kRepeated)) == 0, "and the next start starts the 2 s again");
+    // A run longer than one turn of the clock.
+    Timers<2> u;
+    (void)u.configure(specs, 2, kObservations);
+    std::uint32_t at = 5000U;
+    (void)u.step(bit(kStart), at);
+    bool reopened = false;
+    bool dropped = false;
+    for (std::uint64_t q = 0; q < 0x100000000ULL + 600000ULL; q += 60000U) {
+        const std::uint32_t r = u.step(bit(kStart), at += 60000U);
+        if (q > 60000U && (r & bit(kRanHot)) != 0) { reopened = true; }
+        if ((r & bit(kRepeated)) == 0) { dropped = true; }
+    }
+    check(!reopened, "a run held for more than 49.7 days does not reopen its start-up window");
+    check(!dropped, "and stays held through the clock's wrap");
+}
+
 void test_long_quiet() {
     std::printf("an old event does not come back when the clock wraps 49.7 days later\n");
     // The device steps about every millisecond; stepping once a minute is enough to show it, and keeps the test fast.
@@ -214,6 +252,8 @@ void test_configure_refuses() {
     refused({TimerKind::Count, kRepeated, kTrip, -1, 1000U, 1}, "a count of 1");
     refused({TimerKind::Count, kRepeated, kTrip, -1, 1000U, kMaxTimerCount + 1}, "a count above the ring");
     refused({static_cast<TimerKind>(7), kRanHot, kHot, -1, 1000U, 0}, "an unknown kind");
+    refused({TimerKind::First, kRanHot, kHot, kStart, 1000U, 0}, "within first with an earlier reading");
+    refused({TimerKind::Held, kRanHot, kHot, -1, 1000U, 2}, "for with a count");
     const TimerSpec chained[] = {{TimerKind::Recent, kRanHot, kHot, -1, 1000U, 0},
                                  {TimerKind::Recent, kDeadHead, kRanHot, -1, 1000U, 0}};
     Timers<2> c;
@@ -270,6 +310,14 @@ bool reference(const TimerSpec& s, const std::vector<Step>& h) {
                 if (has(h[i].mask, s.source) && now - h[i].at <= s.window_ms) { return true; }
             }
             return false;
+        case TimerKind::First:
+        case TimerKind::Held: {
+            // The source is set now, and its current run began at most (First) or at least (Held) T ago.
+            if (!has(h[k].mask, s.source)) { return false; }
+            std::size_t j = k;
+            while (j > 0 && has(h[j - 1].mask, s.source)) { --j; }
+            return s.kind == TimerKind::First ? now - h[j].at <= s.window_ms : now - h[j].at >= s.window_ms;
+        }
         case TimerKind::Count: {
             int n = 0;
             for (std::size_t i = 0; i <= k; ++i) {
@@ -319,7 +367,7 @@ void test_against_reference() {
         TimerSpec specs[3];
         const bool chains = trial % 4 >= 2;
         for (int i = 0; i < 3; ++i) {
-            const auto kind = static_cast<TimerKind>(rng() % 3U);
+            const auto kind = static_cast<TimerKind>(rng() % 5U);
             // Readings it may watch: the four base readings, and with chains the outputs of timers 0..i-1 (4..3+i).
             const unsigned pool = chains ? 4U + static_cast<unsigned>(i) : 4U;
             const int src = static_cast<int>(rng() % pool);
@@ -369,6 +417,7 @@ int main() {
     test_wraparound();
     test_long_quiet();
     test_chains();
+    test_first_and_held();
     test_idempotent_and_outputs();
     test_start_up();
     test_configure_refuses();

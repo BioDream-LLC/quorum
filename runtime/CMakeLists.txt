@@ -32,6 +32,7 @@ set(QUORUM_BLOB_CASES
     "gearbox|example/gearbox.cb|gearbox_demo|1"
     "timed|fixtures/timed/timed.cb|timed_demo|0|1"
     "chained|fixtures/timed/chained.cb|chained_demo|0|1"
+    "startup|fixtures/timed/startup.cb|startup_demo|0|1"
 )
 set(CB_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../casebook)
 foreach(case ${QUORUM_BLOB_CASES})

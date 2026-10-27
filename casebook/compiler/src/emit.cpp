@@ -127,7 +127,7 @@ std::string pad(const std::string& s, std::size_t width) {
 /// The timed readings: how the history of readings becomes the readings above. Only when the casebook has some.
 void emit_timers(std::ostream& o, const Lowered& lo) {
     if (lo.timers.empty()) { return; }
-    static const char* const kinds[] = {"After", "Recent", "Count"};
+    static const char* const kinds[] = {"After", "Recent", "Count", "First", "Held"};
     o << "// ── timed readings ─────────────────────────────────────────────────────────\n"
          "//\n"
          "// Include <quorum/binding/binding.hpp> to use these. Call step() once per cycle with the presence mask\n"

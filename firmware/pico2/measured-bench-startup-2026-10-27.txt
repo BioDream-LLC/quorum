@@ -1,0 +1,50 @@
+Two new timed forms on a Raspberry Pi Pico 2 (RP2350), 2026-10-27: 'X within first T' and 'X for T'.
+Runtime firmware built 2026-10-27; images from quorum-studio image <rulebook> -board pico2, each written after a
+1200-baud reset; quorum-studio bench <rulebook> -port COM4, as shipped.
+
+--- startup.cb on the test clock
+PASS  nothing set                                                  expect run              board run
+PASS  door_off: door_open set 1.8 s ago, still set                 expect run              board run
+PASS  door_off: door_open set 2.2 s ago, still set                 expect stop             board stop
+PASS  door_off: door_open set for 1.8 s, then cleared              expect run              board run
+PASS  no_flow: flow_low set 9 s ago, still set                     expect run              board run
+PASS  no_flow: flow_low set 11 s ago, still set                    expect alarm            board alarm
+PASS  no_flow: flow_low set for 9 s, then cleared                  expect run              board run
+PASS  starting: motor_started set 27 s ago, still set, with suction_low expect run              board run
+PASS  starting: motor_started set 33 s ago, still set, with suction_low expect alarm            board alarm
+PASS  door_recently: door_off last set 55 s ago                    expect alarm            board alarm
+PASS  door_recently: door_off last set 1 min 5 s ago               expect run              board run
+PASS  motor_started alone                                          expect run              board run
+PASS  motor_started with suction_low                               expect run              board run
+PASS  suction_low without motor_started                            expect alarm            board alarm
+PASS  suction_low alone                                            expect alarm            board alarm
+PASS  door_open alone                                              expect run              board run
+PASS  flow_low alone                                               expect run              board run
+
+board on COM4, image 0x7a69dd44: 17 of 17 timed checks as the sheet says
+The board's test clock is on until the board is reset. Unplug it, or write the image again, before it goes into service.
+
+--- startup.cb in real time (-real-time on a board already written to), about 3 minutes
+PASS  nothing set                                                  expect run              board run
+PASS  door_off: door_open set 1.8 s ago, still set                 expect run              board run
+PASS  door_off: door_open set 2.2 s ago, still set                 expect stop             board stop
+PASS  door_off: door_open set for 1.8 s, then cleared              expect run              board run
+PASS  no_flow: flow_low set 9 s ago, still set                     expect run              board run
+PASS  no_flow: flow_low set 11 s ago, still set                    expect alarm            board alarm
+PASS  no_flow: flow_low set for 9 s, then cleared                  expect run              board run
+PASS  starting: motor_started set 27 s ago, still set, with suction_low expect run              board run
+PASS  starting: motor_started set 33 s ago, still set, with suction_low expect alarm            board alarm
+PASS  door_recently: door_off last set 55 s ago                    expect alarm            board alarm
+PASS  door_recently: door_off last set 1 min 5 s ago               expect run              board run
+PASS  motor_started alone                                          expect run              board run
+PASS  motor_started with suction_low                               expect run              board run
+PASS  suction_low without motor_started                            expect alarm            board alarm
+PASS  suction_low alone                                            expect alarm            board alarm
+PASS  door_open alone                                              expect run              board run
+PASS  flow_low alone                                               expect run              board run
+
+board on COM4, image 0x7a69dd44: 17 of 17 timed checks as the sheet says
+
+--- regression on the same firmware, test clock
+board on COM4, image 0xb90f2dbe: 19 of 19 timed checks as the sheet says
+board on COM4, image 0x944a89bc: 17 of 17 timed checks as the sheet says
