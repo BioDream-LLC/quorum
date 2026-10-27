@@ -57,6 +57,33 @@ a proven bound on its worst case.
 **quorum studio** puts all of it in one desktop app for Windows, macOS and Linux: open or draft a rulebook, check every
 situation, and write the chip image, without installing a compiler. It runs entirely on your computer.
 
+## What quorum is for
+
+quorum is not a safety system. It is not certified to IEC 61508, IEC 61511, IEC 62061 or ISO 13849, and anything that
+protects people from harm belongs on equipment that is. quorum works beside that equipment, on the decisions that do
+not need certification.
+
+**Use it for:**
+- **Alarms and diagnostics that say why**: one clear answer with its reasons, and a dead sensor that is noticed
+  instead of believed.
+- **Permissives and process logic** in the ordinary control layer, where a wrong answer costs product or time. The PLC
+  keeps the wiring; quorum reads and answers over Modbus beside it ([runtime/GUARD_AND_MODBUS.md](runtime/GUARD_AND_MODBUS.md)).
+- **Checking interlock logic you already have**: write it down, and `cbc` finds every situation with two answers or
+  none, before commissioning.
+- **Commissioning**: a loop-check sheet that covers every situation, and a board driven through it.
+- **A second opinion on an AI or optimiser**: another controller proposes an action, and quorum lets it through only
+  if the approved rulebook finds it no less cautious.
+- **Small machines, test rigs, labs and teaching.**
+
+**Not for:**
+- Safety instrumented functions (SIL 1 to 4) or machine safety functions (PL a to e).
+- The only protection between a hazard and a person.
+- Wiring 24 V field signals to the board. The Pico 2 and Uno R4 are development boards, not cabinet hardware; in a
+  cabinet the PLC keeps the inputs and outputs.
+
+No plant runs quorum yet. If you try it for one of these uses, write to
+[firstmind@biodream.ai](mailto:firstmind@biodream.ai) and say how it went.
+
 ## Everything it does
 
 Twelve areas. Where something is partial or unproven it says so, and [`docs/SAFETY_CASE.md`](docs/SAFETY_CASE.md) lists
@@ -195,7 +222,7 @@ every claim with the test that establishes it and what that test does not cover.
 <img src="docs/assets/chips/limits.svg" width="168" height="40" alt="Limits"><br>
 <b>What it is not</b>
 <ul>
-<li><b>Not certified</b> for safety-critical use, and not yet deployed on a working machine</li>
+<li><b>Not certified</b> for safety-critical use, and not yet deployed on a working machine. See <a href="#what-quorum-is-for">what it is for</a></li>
 <li>It does not predict the future; it applies rules a person wrote and approved to what it sees now</li>
 <li>Uses beyond factories are possibilities, not yet proven in the field</li>
 <li>The full list is under <a href="#honest-limits">Honest limits</a></li>
@@ -877,8 +904,9 @@ from BioDream LLC**: write to [firstmind@biodream.ai](mailto:firstmind@biodream.
 
 **Is it certified for safety-critical use?**
 No. It is designed with certification in mind (bounded time, no heap, no recursion, every claim tied to a test), but it
-has not been assessed against IEC 61508 or any other standard, and it has not run a working machine. Until it is, use it
-beside your existing protections, not instead of them.
+has not been assessed against IEC 61508 or any other standard, and it has not run a working machine. Use it beside your
+existing protections, not instead of them: [What quorum is for](#what-quorum-is-for) lists the uses that do not need
+certification.
 
 **Is it machine learning?**
 No. It is symbolic: it applies rules a person wrote and approved, and every answer is a path through those rules that
